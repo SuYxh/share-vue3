@@ -280,7 +280,7 @@ function trigger(target, key) {
 
 ![image-20240117235403408](https://qn.huat.xyz/mac/202401172354469.png)
 
-
+相关代码在 `commit： (00fb4a2)`实现依赖清理 ，`git checkout 00fb4a2` 即可查看。 
 
 
 
