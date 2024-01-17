@@ -36,4 +36,20 @@ describe('reactivity system', () => {
 
     consoleSpy.mockRestore(); // 清除 mock
   });
+
+  it('why use Reflect', () => {
+    const consoleSpy = vi.spyOn(console, 'log'); // 捕获 console.log
+    const obj = reactive({
+      foo: 1,
+      get bar() {
+        return this.foo
+      }
+    })
+    effect(() => {
+      console.log(obj.bar);
+    })
+    expect(consoleSpy).toHaveBeenCalledTimes(1); 
+    obj.foo ++
+    expect(consoleSpy).toHaveBeenCalledTimes(2); 
+  })
 });

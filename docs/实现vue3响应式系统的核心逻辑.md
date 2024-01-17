@@ -521,7 +521,7 @@ describe('reactivity system', () => {
 
 那么我们就要从`main.js`中导出这2 个函数。
 
-相关代码在 `commit： (xxx)响应式系统基本实现` ，`git checkout xxx` 即可查看。 
+相关代码在 `commit： (8362dd3)设计一个完善的响应系统` ，`git checkout 8362dd3` 即可查看。 
 
 ![image-20240117170347936](https://qn.huat.xyz/mac/202401171703036.png)
 
@@ -537,6 +537,146 @@ describe('reactivity system', () => {
 
 - 存储副作用函数的桶为什么使用了 `WeakMap` ?
 - 在 `Proxy` 中的 `set`函数中直接返回了 `true`， 应该怎么写？不返回会有什么问题？
+
+
+
+### 响应式系统代码重构
+
+在重构代码之前，先把思考问题先解决掉，扫清障碍
+
+#### 分析思考问题
+
+##### 存储副作用函数的桶为什么使用了 `WeakMap` ? 
+
+其实涉及 WeakMap和 Map 的区别，我们用一段代码来讲解：
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+
+<body>
+  <script>
+    const map = new Map();
+    const weakmap = new WeakMap();
+
+    (function () {
+      const foo = { foo: 1 };
+      const bar = { bar: 2 };
+
+      map.set(foo, 1);
+      weakmap.set(bar, 2);
+    })();
+
+    console.log(map);
+    console.log(weakmap);
+  </script>
+</body>
+
+</html>
+```
+
+当该函数表达式执行完毕后，对于对象 `foo` 来说，它仍然作为 map的 key 被引用着，因此垃圾回收器（grabage collector）不会把它从内存中移除，我们仍然可以通过 map.keys 打印出对象 `foo`。然而对于对象 `bar`来说，由于`WeakMap`的 key是弱引用，它不影响垃圾回收器的工作，所以一旦表达式执行完毕，垃圾回收器就会把对象 `bar`从内存中移除，并且我们无法获取 `WeakMap`的 key值，也就无法通过 `WeakMap`取得对象 bar。
+
+简单地说，`WeakMap`对 key是弱引用，不影响垃圾回收器的工作。据这个特性可知，一旦 key被垃圾回收器回收，那么对应的键和值就访问不到了。所以 `WeakMap`经常用于存储那些只有当 key所引用的对象存在时（没有被回收）才有价值的信息，例如上面的场景中，如果 `target `对象没有任何引用了，说明用户侧不再需要它了，这时垃圾回收器会完成回收任务。但如果使用 `Map`来代替 `WeakMap`，那么即使用户侧的代码对` target`没有任何引用，这个 `target` 也不会被回收，最终可能导致内存溢出。
+
+我们看下打印的结果，会有一个更加直观的感受，可以看到 `WeakMap`里面已经为空了。
+
+![image-20240117172556384](https://qn.huat.xyz/mac/202401171725469.png)
+
+
+
+##### Proxy的使用问题
+
+在 `Proxy` 中的 `set`函数中直接返回了 `true`， 应该怎么写？不返回会有什么问题？
+
+如果不写返回值会有什么问题：
+
+根据 ECMAScript 规范，`set` 方法需要返回一个布尔值。这个返回值有重要的意义：
+
+1. **返回 `true`**: 表示属性设置成功。
+2. **返回 `false`**: 表示属性设置失败。在严格模式（strict mode）下，这会导致一个 `TypeError` 被抛出。
+
+如果在 `set` 函数中不返回任何值（或返回 `undefined`），那么默认情况下，它相当于返回 `false`。这意味着：
+
+- 在**非严格模式**下，尽管不返回任何值可能不会立即引起错误，但这是不符合规范的行为。它可能导致调用代码错误地认为属性设置失败。
+- 在**严格模式**下，不返回 `true` 会导致抛出 `TypeError` 异常。
+
+其实这里写 `true`是一个无奈之举，正确的应该这样写：
+
+```js
+set(target, key, newVal, receiver) {
+  const res = Reflect.set(target, key, newVal, receiver)
+	
+  // ...
+
+  return res
+}
+```
+
+那么问题又来了，为什么要配合 `Reflect` 使用呢？
+
+我们添加一个 case 看看：
+
+```js
+it('why use Reflect', () => {
+  const consoleSpy = vi.spyOn(console, 'log'); // 捕获 console.log
+  const obj = reactive({
+    foo: 1,
+    get bar() {
+      return this.foo
+    }
+  })
+  effect(() => {
+    console.log(obj.bar);
+  })
+  expect(consoleSpy).toHaveBeenCalledTimes(1); 
+  obj.foo ++
+  expect(consoleSpy).toHaveBeenCalledTimes(2); 
+})
+```
+
+当 effect 注册的副作用函数执行时，会读取 obj.bar属性，它发现 obj.bar是一个访问器属性，因此执行 getter函数。由于在 getter 函数中通过 this.foo 读取了 foo属性值，因此我们认为副作用函数与属性 foo之间也会建立联系。当我们修改 p.foo 的值时应该能够触发响应，使得副作用函数重新执行才对，但是实际上 effect 并没有执行。这是为什么呢？
+
+我们来看一下 `bucket` 中的收集结果：（你可以把这个 case 的内容直接放在 main.ts 中运行一下，然后在浏览器中查看）
+
+![image-20240117193201524](https://qn.huat.xyz/mac/202401171932642.png)
+
+很明显， 没有收集到 foo， 这是为什么呢？
+
+我们是用的 this.foo 获取到的， bar 值，打印一下 this：
+
+![image-20240117193506465](https://qn.huat.xyz/mac/202401171935567.png)
+
+this 是这个 obj 对象本身，并不是我们代理后的对象，自然就无法被收集到。那么如何改变这个 this 指向呢？就需要使用到 Reflect.get 函数的第三个参数 receiver，可以把它理解为函数调用过程中的 this。
+
+将代码做如下修改：
+
+```js
+get(target, key) {
+  consnt res = Reflect.get(target, key, receiver)
+  // ... 其他不变
+  return res
+},
+set(target, key, newVal) {
+  const res = Reflect.set(target, key, newVal, receiver)
+  // ... 其他不变
+  return res
+},
+```
+
+然后我们再次运行单测，就可以看到通过了
+
+![image-20240117194152466](https://qn.huat.xyz/mac/202401171941562.png)
+
+
+
+#### 代码重构
 
 
 

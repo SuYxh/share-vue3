@@ -5,9 +5,11 @@ const bucket = new WeakMap();
 export function reactive(target) {
   return new Proxy(target, {
     // 拦截读取操作
-    get(target, key) {
+    get(target, key, receiver) {
       // 没有 activeEffect，直接返回
       if (!activeEffect) return target[key];
+
+      const res = Reflect.get(target, key, receiver)
   
       // 根据 target 从“桶”中取得 depsMap，它也是一个 Map 类型：key --> effects
       let depsMap = bucket.get(target);
@@ -30,13 +32,13 @@ export function reactive(target) {
       deps.add(activeEffect);
   
       // 返回属性值
-      return target[key];
+      return res
     },
   
     // 拦截设置操作
-    set(target, key, newVal) {
+    set(target, key, newVal, receiver) {
       // 设置属性值
-      target[key] = newVal;
+      const res = Reflect.set(target, key, newVal, receiver)
   
       // 根据 target 从桶中取得 depsMap，它是 key --> effects
       const depsMap = bucket.get(target);
@@ -49,7 +51,7 @@ export function reactive(target) {
       // 执行副作用函数
       effects && effects.forEach(fn => fn());
   
-      return true
+      return res
     }
   });
 }
