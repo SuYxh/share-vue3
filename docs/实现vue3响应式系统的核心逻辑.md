@@ -145,29 +145,24 @@ function effect() {
 
 ### 代码实现
 
-```typescript
-interface DataType {
-  age: number;
-  name: string
-}
-
+```javascript
 // 存储副作用函数的桶
-const bucket: Set<() => void> = new Set();
+const bucket = new Set();
 
 // 原始数据
-const data: DataType = { name: 'dahuang', age: 18 };
+const data = { name: 'dahuang', age: 18 };
 
 // 对原始数据的代理
-const obj: DataType = new Proxy(data, {
+const obj = new Proxy(data, {
   // 拦截读取操作
-  get<T extends keyof DataType>(target: DataType, key: T) {
+  get(target, key) {
     // 将副作用函数 effect 添加到存储副作用函数的桶中
     bucket.add(effect);
     // 返回属性值
     return target[key];
   },
   // 拦截设置操作
-  set<T extends keyof DataType>(target: DataType, key: T, newVal: DataType[T]): boolean {
+  set(target, key, newVal) {
     target[key] = newVal;
     bucket.forEach(fn => fn());
     return true;
@@ -176,7 +171,7 @@ const obj: DataType = new Proxy(data, {
 
 // 以下为测试代码
 // 副作用函数
-function effect(): void {
+function effect() {
   console.log(obj.age);
 }
 
@@ -202,11 +197,45 @@ setTimeout(() => {
 
 
 
+## 完善的响应系统
 
+### 解决硬编码副作用函数名字问题
 
+为了实现这一点，我们需要提供一个用来注册副作用函数的机制，如以下代码所示：
 
+```ts
+// 当前激活的副作用函数
+let currentEffect = null;
 
+// 定义副作用函数
+export function effect(fn) {
+  // 设置当前激活的副作用函数
+  currentEffect = fn;
+  // 执行副作用函数
+  fn();
+  // 重置当前激活的副作用函数
+  currentEffect = null;
+}
+```
 
+首先，定义了一个全局变量 `activeEffect`，初始值是 `null`，它的作用是存储被注册的副作用函数。接着重新定义了 `effect` 函数，它变成了一个用来注册副作用函数的函数，`effect` 函数接收一个参数` fn`，即要注册的副作用函数。我们可以按照如下所示的方式使用`effect` 函数：
 
+```js
+effect(() => {
+  console.log(obj.age);
+})
+```
 
+如上面的代码所示，由于副作用函数已经存储到了 activeEffect中，所以在 get拦截函数内应该把 activeEffect收集到“桶”中，这样响应系统就不依赖副作用函数的名字了。
+
+```js
+get(target, key) {
+  // 将 currentEffect 添加到存储副作用函数的桶中
+  if (currentEffect) {
+    bucket.add(currentEffect);
+  }
+  // 返回属性值
+  return target[key];
+},
+```
 
