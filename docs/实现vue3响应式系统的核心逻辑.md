@@ -675,10 +675,82 @@ set(target, key, newVal) {
 ![image-20240117194152466](https://qn.huat.xyz/mac/202401171941562.png)
 
 
+相关代码在 `commit： (c90c1ac)增加Reflect的使用` ，`git checkout 8362dd3` 即可查看。 
 
 #### 代码重构
 
+在目前的实现中，当读取属性值时，我们直接在 get 拦截函数里编写把副作用函数收集到“桶”里的这部分逻辑，但更好的做法是将这部分逻辑单独封装到一个 `track` 函数中，函数的名字叫 `track` 是为了表达追踪的含义。同样，我们也可以把触发副作用函数重新执行的逻辑封装到 `trigger`函数中：
 
+```js
+function track(target, key) {
+  // 没有 activeEffect，直接返回
+  if (!activeEffect) return target[key];
+  // 根据 target 从“桶”中取得 depsMap，它也是一个 Map 类型：key --> effects
+  let depsMap = bucket.get(target);
+
+  // 如果不存在 depsMap，那么新建一个 Map 并与 target 关联
+  if (!depsMap) {
+    bucket.set(target, (depsMap = new Map()));
+  }
+
+  // 再根据 key 从 depsMap 中取得 deps，它是一个 Set 类型，
+  // 里面存储着所有与当前 key 相关联的副作用函数：effects
+  let deps = depsMap.get(key);
+
+  // 如果 deps 不存在，同样新建一个 Set 并与 key 关联
+  if (!deps) {
+    depsMap.set(key, (deps = new Set()));
+  }
+
+  // 最后将当前激活的副作用函数添加到“桶”里
+  deps.add(activeEffect);
+}
+
+function trigger(target, key) {
+  // 根据 target 从桶中取得 depsMap，它是 key --> effects
+  const depsMap = bucket.get(target);
+
+  if (!depsMap) return;
+
+  // 根据 key 取得所有副作用函数 effects
+  const effects = depsMap.get(key);
+
+  // 执行副作用函数
+  effects && effects.forEach((fn) => fn());
+}
+
+// 对原始数据的代理
+export function reactive(target) {
+  return new Proxy(target, {
+    // 拦截读取操作
+    get(target, key, receiver) {
+      const res = Reflect.get(target, key, receiver);
+      // 依赖收集
+      track(target, key);
+      return res;
+    },
+
+    // 拦截设置操作
+    set(target, key, newVal, receiver) {
+      // 设置属性值
+      const res = Reflect.set(target, key, newVal, receiver);
+      // 派发更新
+      trigger(target, key);
+      return res;
+    },
+  });
+}
+```
+
+分别把逻辑封装到 `track` 和 `trigger` 函数内，这能为我们带来极大的灵活性。
+
+我们来运行一下 `pnpm test`命令：
+
+![image-20240117195938057](https://qn.huat.xyz/mac/202401171959137.png)
+
+可以看到，我们的case全部通过。单测，让我们的重构没有压力，这下再也不怕把代码改坏啦！这里我们也可以感受出来，单测的一些好处。
+
+当我们在写单测的时候，最好一个功能写一个 case，一组有关联的逻辑放在一个测试文件中，这样当功能改动的时候，需要改动的case会最少。
 
 
 
