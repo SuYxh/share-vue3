@@ -273,7 +273,109 @@ pnpm test
 
 ![image-20240118134037363](https://qn.huat.xyz/mac/202401181340431.png)
 
-之前的 case 都能跑过， 可以提代码了
+之前的 case 都能跑过， 可以提代码了。
+
+相关代码在 `commit： (a813df8)`嵌套 effec ，`git checkout a813df8` 即可查看。 
+
+
+
+### 流程图
+
+![image-20240118141412503](https://qn.huat.xyz/mac/202401181414561.png)
+
+
+
+## 支持自增运算符
+
+### 场景
+
+使用 `obj.counter++` 进行数据修改
+
+
+
+### 编写单元测试
+
+来看一个 case：
+
+```js
+it("支持自增运算符", () => {
+  // 创建响应式对象
+  const obj = reactive({ name: "dahuang", age: 18, counter: 1 });
+
+  let errorOccurred = false;
+
+  // 定义 effect 函数
+  try {
+    effect(() => {
+      obj.counter++;
+    });
+  } catch (error) {
+    errorOccurred = true;
+  }
+
+  // 断言不应该抛出错误
+  expect(errorOccurred).toBe(false);
+});
+```
+
+### 运行测试
+
+![image-20240118142225856](https://qn.huat.xyz/mac/202401181422916.png)
+
+RangeError: Maximum call stack size exceeded ！！！
+
+### 问题分析
+
+`obj.counter++;` 实际上等价于 `obj.counter = obj.counter + 1` ， 会先执行 getter 方法在执行 setter，
+
+![image-20240118143412521](https://qn.huat.xyz/mac/202401181434586.png)
+
+
+
+首先读取 `obj.counter`的值，这会触发` track`操作，将当前副作用函数收集到“桶”中，接着将其加 1后再赋值给 `obj.counter`，此时会触发`trigger`操作，即把“桶”中的副作用函数取出并执行。但问题是该副作用函数正在执行中，还没有执行完毕，就要开始下一次的执行。这样会导致无限递归地调用自己，于是就产生了栈溢出。
+
+
+
+### 解决
+
+在 `trigger` 动作发生时增加守卫条件：如果`trigger`触发执行的副作用函数与当前正在执行的副作用函数相同，则不触发执行 ，如以下代码所示：
+
+```js
+function trigger(target, key) {
+  // 获取与目标对象相关联的依赖映射
+  const depsMap = bucket.get(target);
+  // 如果没有依赖映射，则直接返回
+  if (!depsMap) return;
+  // 获取与特定属性键相关联的所有副作用函数
+  const effects = depsMap.get(key);
+  // 这行代码有问题
+  // effects && effects.forEach((effectFn) => effectFn());
+
+  const effectsToRun = new Set();
+
+  effects && effects.forEach(effectFn => {
+    // 如果 trigger 触发执行的副作用函数与当前正在执行的副作用函数相同，则不触发执行
+    if (effectFn !== activeEffect) {  // 新增
+      effectsToRun.add(effectFn);
+    }
+  });
+
+  // 遍历并执行所有相关的副作用函数
+  effectsToRun.forEach(effectFn => effectFn());
+}
+```
+
+
+
+### 执行 test
+
+```
+pnpm test
+```
+
+![image-20240118143951126](https://qn.huat.xyz/mac/202401181439196.png)
+
+
 
 
 

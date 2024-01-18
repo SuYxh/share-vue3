@@ -78,10 +78,17 @@ function trigger(target, key) {
   // 这行代码有问题
   // effects && effects.forEach((effectFn) => effectFn());
 
-  // 创建一个新的 Set 来存储需要执行的副作用函数，避免在执行过程中的重复或无限循环
-  const effectsToRun = new Set(effects);
+  const effectsToRun = new Set();
+
+  effects && effects.forEach(effectFn => {
+    // 如果 trigger 触发执行的副作用函数与当前正在执行的副作用函数相同，则不触发执行
+    if (effectFn !== activeEffect) {  // 新增
+      effectsToRun.add(effectFn);
+    }
+  });
+
   // 遍历并执行所有相关的副作用函数
-  effectsToRun.forEach((effectFn) => effectFn());
+  effectsToRun.forEach(effectFn => effectFn());
 }
 
 // 对原始数据的代理
