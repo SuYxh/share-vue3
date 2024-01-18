@@ -146,4 +146,34 @@ describe("reactivity system", () => {
     // 断言不应该抛出错误
     expect(errorOccurred).toBe(false);
   });
+
+  it('should follow the correct order', () => {
+    // 保存原始的 console.log
+    const originalConsoleLog = console.log;
+    // 创建一个模拟的 console.log 函数
+    const mockConsoleLog = vi.fn();
+    global.console.log = mockConsoleLog; // 重定向 console.log 到 mock 函数
+
+    const obj = reactive({ foo: 1 })
+
+    effect(() => {
+      mockConsoleLog(obj.foo);
+    }, {
+      scheduler: function (fn) {
+        setTimeout(fn, 0);
+      }
+    })
+
+    obj.foo++;
+
+    mockConsoleLog('结束了');
+
+    // 检查调用顺序
+    expect(mockConsoleLog.mock.calls[0][0]).toBe(1); // 第一次调用，参数应该是 1
+    expect(mockConsoleLog.mock.calls[1][0]).toBe('结束了'); // 第二次调用，参数应该是 '结束了'
+
+    // 清理模拟
+    mockConsoleLog.mockClear();
+    global.console.log = originalConsoleLog; // 恢复 console.log
+  });
 });

@@ -18,7 +18,7 @@ function cleanup(effectFn) {
 }
 
 // 定义副作用函数
-export function effect(fn) {
+export function effect(fn, options = {}) {
   // 定义一个封装了用户传入函数的副作用函数
   const effectFn = () => {
     // 将 fn 挂载到 effectFn 方便调试观看区分函数，没有实际作用
@@ -35,6 +35,8 @@ export function effect(fn) {
     effectStack.pop(); // 新增
     activeEffect = effectStack[effectStack.length - 1]; // 新增
   };
+  // 将 options 挂载到 effectFn 上
+  effectFn.options = options; // 新增
   // effectFn.deps 用来存储所有与该副作用函数相关联的依赖集合
   effectFn.deps = [];
   // 执行副作用函数
@@ -88,7 +90,13 @@ function trigger(target, key) {
   });
 
   // 遍历并执行所有相关的副作用函数
-  effectsToRun.forEach(effectFn => effectFn());
+  effectsToRun.forEach(effectFn => {
+    if (effectFn.options.scheduler) {
+      effectFn.options.scheduler(effectFn)
+    } else {
+      effectFn()
+    }
+  });
 }
 
 // 对原始数据的代理

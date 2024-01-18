@@ -375,6 +375,12 @@ pnpm test
 
 ![image-20240118143951126](https://qn.huat.xyz/mac/202401181439196.png)
 
+相关代码在 `commit： (7d029e6)`支持自增运算符 ，`git checkout 7d029e6` 即可查看。 
+
+### 流程图
+
+![image-20240118144512416](https://qn.huat.xyz/mac/202401181445476.png)
+
 
 
 
