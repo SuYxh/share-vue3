@@ -202,9 +202,9 @@ function trigger(target, key) {
 
 ![image-20240118155042555](https://qn.huat.xyz/mac/202401181550595.png)
 
-之前的 case 也没有问题
+之前的 case 也没有问题！
 
-
+相关代码在 `commit： (997ecd0)实现调度执行 ，`git checkout 997ecd0` 即可查看。 
 
 ### 流程图
 

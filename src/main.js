@@ -30,22 +30,29 @@ export function effect(fn, options = {}) {
     // 在调用副作用函数之前将当前副作用函数压入栈中
     effectStack.push(effectFn);
     // 执行用户传入的函数
-    fn();
+    const res = fn();
     // 在当前副作用函数执行完毕后，将当前副作用函数弹出栈，并把 activeEffect 还原为之前的值
-    effectStack.pop(); // 新增
-    activeEffect = effectStack[effectStack.length - 1]; // 新增
+    effectStack.pop();
+    activeEffect = effectStack[effectStack.length - 1];
+    return res;
   };
   // 将 options 挂载到 effectFn 上
-  effectFn.options = options; // 新增
+  effectFn.options = options;
   // effectFn.deps 用来存储所有与该副作用函数相关联的依赖集合
   effectFn.deps = [];
-  // 执行副作用函数
-  effectFn();
+  // 只有非 lazy 的时候，才执行
+  if (!options.lazy) {
+    // 执行副作用函数
+    effectFn();
+  }
+
+  // 将副作用函数作为返回值返回
+  return effectFn;
 }
 
-function track(target, key) {
+export function track(target, key) {
   // 没有 activeEffect，直接返回
-  if (!activeEffect) return target[key];
+  if (!activeEffect) return
   // 根据 target 从“桶”中取得 depsMap，它也是一个 Map 类型：key --> effects
   let depsMap = bucket.get(target);
 
@@ -70,7 +77,7 @@ function track(target, key) {
   activeEffect.deps.push(deps);
 }
 
-function trigger(target, key) {
+export function trigger(target, key) {
   // 获取与目标对象相关联的依赖映射
   const depsMap = bucket.get(target);
   // 如果没有依赖映射，则直接返回
@@ -82,19 +89,21 @@ function trigger(target, key) {
 
   const effectsToRun = new Set();
 
-  effects && effects.forEach(effectFn => {
-    // 如果 trigger 触发执行的副作用函数与当前正在执行的副作用函数相同，则不触发执行
-    if (effectFn !== activeEffect) {  // 新增
-      effectsToRun.add(effectFn);
-    }
-  });
+  effects &&
+    effects.forEach((effectFn) => {
+      // 如果 trigger 触发执行的副作用函数与当前正在执行的副作用函数相同，则不触发执行
+      if (effectFn !== activeEffect) {
+        // 新增
+        effectsToRun.add(effectFn);
+      }
+    });
 
   // 遍历并执行所有相关的副作用函数
-  effectsToRun.forEach(effectFn => {
+  effectsToRun.forEach((effectFn) => {
     if (effectFn.options.scheduler) {
-      effectFn.options.scheduler(effectFn)
+      effectFn.options.scheduler(effectFn);
     } else {
-      effectFn()
+      effectFn();
     }
   });
 }
