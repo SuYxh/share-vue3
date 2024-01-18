@@ -1,0 +1,169 @@
+现vue3响应式系统核心-watch
+
+## 简介
+
+2023 年 12 月 31 日，vue2 已经停止维护了。你还不会 Vue3 的源码么？
+
+手把手带你实现一个 vue3 响应式系统，你将获得：
+
+- TDD 测试驱动开发
+- 重构
+- [vitest](https://cn.vitest.dev/) 的使用
+- 如何使用  [ChatGPT](https://ask.vuejs.news/) 编写单元测试
+- 响应式数据以及副作用函数
+- 响应式系统基本实现
+- Vue3 的响应式的数据结构是什么样？为什么是这样？如何形成的？
+- Proxy 为什么要配合 Reflect 使用？如果不配合会有什么问题？
+- Map 与  WeakMap的区别
+- 依赖收集
+- 派发更新
+- 依赖清理
+- 支持嵌套
+- 实现执行调度
+- 实现 computed
+- 实现 watch
+- excalidraw 画图工具
+
+代码地址： https://github.com/SuYxh/share-vue3 
+
+代码并没有按照源码的方式去进行组织，目的是学习、实现 vue3 响应式系统的核心，用最少的代码去实现最核心的能力，减少我们的学习负担，并且所有的流程都会有配套的图片，图文 + 代码，让我们学习更加轻松、快乐。
+
+每一个功能都会提交一个 `commit` ，大家可以切换查看，也顺变练习练习 git 的使用。
+
+
+
+## watch 实现
+
+` watch`本质就是观测一个响应式数据，当数据发生变化时通知并执行相应的回调函数。实际上，`watch`的实现本质上就是利用了 `effect` 以及 `options.scheduler`选项。
+
+### 编写单测
+
+假设 obj是一个响应数据，使用 watch 函数观测它，并传递一个回调函数，当修改响应式数据的值时，会触发该回调函数执行。
+
+```js
+it("base watch", () => {
+  const mockFn = vi.fn();
+
+  // 创建响应式对象
+  const obj = reactive({ foo: 100 });
+
+  watch(obj, () => {
+    mockFn()
+  });
+
+  obj.foo ++
+
+  expect(mockFn).toHaveBeenCalledTimes(1);
+});
+```
+
+
+
+### 代码实现
+
+在一个副作用函数中访问响应式数据 `obj.foo`，通过前面的介绍，我们知道这会在副作用函数与响应式数据之间建立联系，当响应式数据变化时，会触发副作用函数重新执行。但有一个例外，即如果副作用函数存在 `scheduler`选项，当响应式数据发生变化时，会触发 `scheduler`调度函数执行，而非直接触发副作用函数执行。从这个角度来看，其实 `scheduler`调度函数就相当于一个回调函数，而 `watch`的实现就是利用了这个特点。下面是最简单的 watch 函数的实现：
+
+```js
+// watch 函数接收两个参数，source 是响应式数据，cb 是回调函数
+function watch(source, cb) {
+  effect(
+    // 触发读取操作，从而建立联系
+    () => source.foo,
+    {
+      scheduler() {
+        // 当数据变化时，调用回调函数 cb
+        cb();
+      }
+    }
+  );
+}
+```
+
+
+
+### 运行单测
+
+![image-20240118183001505](https://qn.huat.xyz/mac/202401181830541.png)
+
+
+
+### 支持所有属性监听
+
+在来看一个 case
+
+```js
+ it("watch 多个属性", () => {
+    const mockFn = vi.fn();
+
+    // 创建响应式对象
+    const obj = reactive({ foo: 100, bar: 200, age: 10 });
+
+    watch(obj, () => {
+      mockFn()
+    });
+    
+    obj.bar ++
+
+    obj.age ++
+
+    expect(mockFn).toHaveBeenCalledTimes(2);
+  });
+```
+
+执行一下
+
+![image-20240118191155795](https://qn.huat.xyz/mac/202401181911825.png)
+
+修改了 2 个属性值，回调函数应该执行 2 次，但是回调函数并没有执行，这是为什么呢？
+
+前面的`watch`函数中写死了 `source.foo,` `source.bar`没有进行依赖收集，自然回调函数就不会执行了。那么 我们来封装一个通用的读取操作：
+
+```js
+function traverse(value, seen = new Set()) {
+  // 如果要读取的数据是原始值，或者已经被读取过了，那么什么都不做
+  if (typeof value !== 'object' || value === null || seen.has(value)) return;
+
+  // 将数据添加到 seen 中，代表遍历地读取过了，避免循环引用引起的死循环
+  seen.add(value);
+
+  // 暂时不考虑数组等其他结构
+  // 假设 value 就是一个对象，使用 for...in 读取对象的每一个值，并递归地调用 traverse 进行处理
+  for (const k in value) {
+    traverse(value[k], seen);
+  }
+
+  return value;
+}
+```
+
+修改 `watch` 如下：
+
+```js
+function watch(source, cb) {
+  effect(
+    // 触发读取操作，从而建立联系
+    () => traverse(source),
+    {
+      scheduler() {
+        // 当数据变化时，调用回调函数 cb
+        cb();
+      }
+    }
+  );
+}
+```
+
+`traverse` 方法的作用，读取传入对象的所有属性，然后构建依赖关系，任何一个属性值发生变化，都会执行回调函数。
+
+再次执行单测：
+
+![image-20240118191058109](https://qn.huat.xyz/mac/202401181910142.png)
+
+
+
+
+
+
+
+
+
