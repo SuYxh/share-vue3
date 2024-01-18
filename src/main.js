@@ -2,6 +2,8 @@
 const bucket = new WeakMap();
 // 当前激活的副作用函数
 let activeEffect = null;
+// effect 栈
+const effectStack = [];
 
 function cleanup(effectFn) {
   // 遍历 effectFn.deps 数组
@@ -20,14 +22,18 @@ export function effect(fn) {
   // 定义一个封装了用户传入函数的副作用函数
   const effectFn = () => {
     // 将 fn 挂载到 effectFn 方便调试观看区分函数，没有实际作用
-    effectFn.fn = fn
+    effectFn.fn = fn;
     // 在执行用户传入的函数之前调用 cleanup
     cleanup(effectFn);
     // 当 effectFn 执行时，将其设置为当前激活的副作用函数
     activeEffect = effectFn;
+    // 在调用副作用函数之前将当前副作用函数压入栈中
+    effectStack.push(effectFn);
     // 执行用户传入的函数
     fn();
-    activeEffect = null;
+    // 在当前副作用函数执行完毕后，将当前副作用函数弹出栈，并把 activeEffect 还原为之前的值
+    effectStack.pop(); // 新增
+    activeEffect = effectStack[effectStack.length - 1]; // 新增
   };
   // effectFn.deps 用来存储所有与该副作用函数相关联的依赖集合
   effectFn.deps = [];
@@ -70,7 +76,7 @@ function trigger(target, key) {
   // 获取与特定属性键相关联的所有副作用函数
   const effects = depsMap.get(key);
   // 这行代码有问题
-  // effects && effects.forEach((effectFn) => effectFn()); 
+  // effects && effects.forEach((effectFn) => effectFn());
 
   // 创建一个新的 Set 来存储需要执行的副作用函数，避免在执行过程中的重复或无限循环
   const effectsToRun = new Set(effects);

@@ -81,11 +81,51 @@ describe("reactivity system", () => {
     expect(consoleSpy).toHaveBeenCalledTimes(3);
   });
 
-  it('effecFn 被收集在多个依赖集合中', () => {
-    const obj = reactive({ name: 'dahuang', age: 18, isStudent: true })
+  it("effecFn 被收集在多个依赖集合中", () => {
+    const obj = reactive({ name: "dahuang", age: 18, isStudent: true });
     effect(function effectFn1() {
-      const info = obj.name + obj.age
+      const info = obj.name + obj.age;
       console.log(info);
-    })
-  })
+    });
+  });
+
+  it('effectFn1 and effectFn2 should be triggered appropriately', () => {
+    const obj = reactive({ foo: true, bar: true });
+
+    // 创建模拟函数来跟踪调用
+    const mockEffectFn1 = vi.fn();
+    const mockEffectFn2 = vi.fn();
+
+    // 用模拟函数替换原来的 console.log
+    effect(function effectFn1() {
+      mockEffectFn1();
+      effect(function effectFn2() {
+        mockEffectFn2();
+        // 读取 obj.bar 属性
+        console.log(obj.bar);
+      });
+      // 读取 obj.foo 属性
+      console.log(obj.foo);
+    });
+
+  	// 初始化 mockEffectFn1会被调用 1 次；  mockEffectFn2会被调用 1 次
+    expect(mockEffectFn1).toHaveBeenCalledTimes(1);
+    expect(mockEffectFn2).toHaveBeenCalledTimes(1);
+
+
+    // 更改 obj.foo，预期 effectFn1 被触发， 
+  	// mockEffectFn1会被调用 1 次； 加上之前的一次一共 2 次
+  	// mockEffectFn2会被调用 1 次； 加上之前的一次一共 2 次
+    obj.foo = false;
+    expect(mockEffectFn1).toHaveBeenCalledTimes(2);
+
+    // 更改 obj.bar，预期 effectFn2 被触发
+  	// 更改 obj.bar 时，触发 trigger， 此时 bar 对应的 Set 集合中有 2 个 effectFn2，所以 effectFn2会被执行 2 次，一共 4 次
+  
+  	//  bar 对应的 Set 集合中有 2 个 effectFn2 为什么呢？
+  	//  当 obj.foo 更新后，effectFn1 会调用，其中会调用 effectFn1 函数，再次触发依赖收集，加上之前的就是 2 个了
+  	// set 不是去重吗？  deps.add(activeEffect);  activeEffect 是一个函数，每次函数的地址不一样
+    obj.bar = false;
+    expect(mockEffectFn2).toHaveBeenCalledTimes(4);
+  });
 });
