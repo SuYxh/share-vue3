@@ -2,27 +2,9 @@
 
 ## 简介
 
-2023 年 12 月 31 日，vue2 已经停止维护了。你还不会 Vue3 的源码么？
+今天我们来看看 `watch` 的实现。` watch`本质就是观测一个响应式数据，当数据发生变化时通知并执行相应的回调函数。实际上，`watch`的实现本质上就是利用了 `effect` 以及 `options.scheduler`选项。
 
-手把手带你实现一个 vue3 响应式系统，你将获得：
 
-- TDD 测试驱动开发
-- 重构
-- [vitest](https://cn.vitest.dev/) 的使用
-- 如何使用  [ChatGPT](https://ask.vuejs.news/) 编写单元测试
-- 响应式数据以及副作用函数
-- 响应式系统基本实现
-- Vue3 的响应式的数据结构是什么样？为什么是这样？如何形成的？
-- Proxy 为什么要配合 Reflect 使用？如果不配合会有什么问题？
-- Map 与  WeakMap的区别
-- 依赖收集
-- 派发更新
-- 依赖清理
-- 支持嵌套
-- 实现执行调度
-- 实现 computed
-- 实现 watch
-- excalidraw 画图工具
 
 代码地址： https://github.com/SuYxh/share-vue3 
 
@@ -34,11 +16,11 @@
 
 ## watch 实现
 
-` watch`本质就是观测一个响应式数据，当数据发生变化时通知并执行相应的回调函数。实际上，`watch`的实现本质上就是利用了 `effect` 以及 `options.scheduler`选项。
+在一个副作用函数中访问响应式数据 `obj.foo`，通过前面的介绍，我们知道这会在副作用函数与响应式数据之间建立联系，当响应式数据变化时，会触发副作用函数重新执行。但有一个例外，即如果副作用函数存在 `scheduler`选项，当响应式数据发生变化时，会触发 `scheduler`调度函数执行，而非直接触发副作用函数执行。从这个角度来看，其实 `scheduler`调度函数就相当于一个回调函数，而 `watch`的实现就是利用了这个特点。
 
 ### 编写单测
 
-假设 obj是一个响应数据，使用 watch 函数观测它，并传递一个回调函数，当修改响应式数据的值时，会触发该回调函数执行。
+假设`obj`是一个响应数据，使用` watch` 函数观测它，并传递一个回调函数，当修改响应式数据的值时，会触发该回调函数执行。
 
 ```js
 it("base watch", () => {
@@ -61,7 +43,7 @@ it("base watch", () => {
 
 ### 代码实现
 
-在一个副作用函数中访问响应式数据 `obj.foo`，通过前面的介绍，我们知道这会在副作用函数与响应式数据之间建立联系，当响应式数据变化时，会触发副作用函数重新执行。但有一个例外，即如果副作用函数存在 `scheduler`选项，当响应式数据发生变化时，会触发 `scheduler`调度函数执行，而非直接触发副作用函数执行。从这个角度来看，其实 `scheduler`调度函数就相当于一个回调函数，而 `watch`的实现就是利用了这个特点。下面是最简单的 watch 函数的实现：
+下面是最简单的 watch 函数的实现：
 
 ```js
 // watch 函数接收两个参数，source 是响应式数据，cb 是回调函数
@@ -84,6 +66,8 @@ function watch(source, cb) {
 ### 运行单测
 
 ![image-20240118183001505](https://qn.huat.xyz/mac/202401181830541.png)
+
+是不是很简单！
 
 
 
@@ -116,7 +100,9 @@ function watch(source, cb) {
 
 修改了 2 个属性值，回调函数应该执行 2 次，但是回调函数并没有执行，这是为什么呢？
 
-前面的`watch`函数中写死了 `source.foo,` `source.bar`没有进行依赖收集，自然回调函数就不会执行了。那么 我们来封装一个通用的读取操作：
+前面的`watch`函数中写死了 `source.foo,` `source.bar`没有进行依赖收集，自然回调函数就不会执行了。
+
+那么就需要封装一个通用的读取操作：
 
 ```js
 function traverse(value, seen = new Set()) {
@@ -188,7 +174,9 @@ it('支持 getter 函数', () => {
 
 ![image-20240118191803479](https://qn.huat.xyz/mac/202401181918515.png)
 
-发现没有通过，因为我们之前也没有实现对函数的支持，在 watch 中增加一个对第一个参数的判断就好：
+发现没有通过，因为我们之前也没有实现对函数的支持，肯定不会通过。
+
+在 watch 中增加一个对第一个参数的判断就好：
 
 ```js
 export function watch(source, cb) {
@@ -216,7 +204,7 @@ export function watch(source, cb) {
 
 ![image-20240118192047176](https://qn.huat.xyz/mac/202401181920217.png)
 
-发现就 ok 啦
+这样就通过了。
 
 相关代码在 `commit： (0acd398)watch 支持函数参数 ，`git checkout 0acd398  即可查看。 
 
@@ -283,7 +271,7 @@ function watch(source, cb) {
 }
 ```
 
-在这段代码中，最核心的改动是使用 `lazy` 选项创建了一个懒执行的 `effect `。注意上面代码中最下面的部分，我们手动调用 `effectFn` 函数得到的返回值就是旧值，即第一次执行得到的值。当变化发生并触发 `scheduler `调度函数执行时，会重新调用 `effectFn` 函数并得到新值，这样我们就拿到了旧值与新值，接着将它们作为参数传递给回调函数 `cb` 就可以了。最后一件非常重要的事情是，不要忘记使用新值更新旧值：`oldValue = newValue`，否则在下一次变更发生时会得到错误的旧值。
+其中最核心的改动是使用 `lazy` 选项创建了一个懒执行的 `effect `。注意上面代码中最下面的部分，我们手动调用 `effectFn` 函数得到的返回值就是旧值，即第一次执行得到的值。当变化发生并触发 `scheduler `调度函数执行时，会重新调用 `effectFn` 函数并得到新值，这样我们就拿到了旧值与新值，接着将它们作为参数传递给回调函数 `cb` 就可以了。最后一件非常重要的事情是，不要忘记使用新值更新旧值：`oldValue = newValue`，否则在下一次变更发生时会得到错误的旧值。
 
 运行单测
 
@@ -355,7 +343,7 @@ export function watch(source, cb, options) {
   });
 
   if (options.immediate) {
-    // 当 immediate 为 true 时立即执行 job，从而触发回调执行
+    // 当 immediate 为 true 时立即执行 effectFn，从而触发回调执行
     newValue = effectFn();
     cb(newValue, oldValue);
     oldValue = newValue;
@@ -374,7 +362,7 @@ export function watch(source, cb, options) {
 
 
 
-### 代码优化
+### 重构
 
 我们可以发现 `scheduler` 方法中的逻辑和 `options.immediate`  为 `true` 时执行的逻辑一样，那么就可以进行封装:
 
@@ -427,9 +415,19 @@ pnpm test
 
 ![image-20240118195319687](https://qn.huat.xyz/mac/202401181953742.png)
 
-可以看到就全部通过了，我们也逐步体会到了单测的好处！
+可以看到就全部通过了，单测为我们的代码保驾护航！
 
 相关代码在 `commit： (c0721bd)watch 代码优化 ，`git checkout c0721bd  即可查看。 
+
+
+
+### 流程图
+
+整体流程图如下：
+
+![image-20240118200856264](https://qn.huat.xyz/mac/202401182008322.png)
+
+
 
 
 

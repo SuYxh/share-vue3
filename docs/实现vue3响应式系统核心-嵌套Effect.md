@@ -1,28 +1,13 @@
-现vue3响应式系统核心-嵌套Effect
+实现vue3响应式系统核心-嵌套effect
 
 ## 简介
 
-2023 年 12 月 31 日，vue2 已经停止维护了。你还不会 Vue3 的源码么？
+今天我们的主要任务是实现嵌套 effect 和对 effect 的一些优化，包含：
 
-手把手带你实现一个 vue3 响应式系统，你将获得：
+- 嵌套 effect
+- effect 支持自增运算符
 
-- TDD 测试驱动开发
-- 重构
-- [vitest](https://cn.vitest.dev/) 的使用
-- 如何使用  [ChatGPT](https://ask.vuejs.news/) 编写单元测试
-- 响应式数据以及副作用函数
-- 响应式系统基本实现
-- Vue3 的响应式的数据结构是什么样？为什么是这样？如何形成的？
-- Proxy 为什么要配合 Reflect 使用？如果不配合会有什么问题？
-- Map 与  WeakMap的区别
-- 依赖收集
-- 派发更新
-- 依赖清理
-- 支持嵌套
-- 实现执行调度
-- 实现 computed
-- 实现 watch
-- excalidraw 画图工具
+
 
 代码地址： https://github.com/SuYxh/share-vue3 
 
@@ -30,13 +15,11 @@
 
 每一个功能都会提交一个 `commit` ，大家可以切换查看，也顺变练习练习 git 的使用。
 
-
-
-## 嵌套Effect
+## 嵌套effect
 
 ### 场景
 
-什么场景下会出现嵌套的 `effect` 呢？ Vue.js 的渲染函数就是在一个 `effect` 中执行的。当组件发生嵌套时，例如 Foo 组件渲染了 Bar 组件：
+什么场景下会出现嵌套的 `effect` 呢？ Vue.js 的渲染函数就是在一个 `effect` 中执行的。当组件发生嵌套时，例如 `Foo` 组件渲染了 `Bar` 组件：
 
 ```js
 // Bar 组件
@@ -66,17 +49,13 @@ effect(() => {
 });
 ```
 
-这个例子说明了为什么 `effect`  要设计成可嵌套的。
-
 
 
 ### 编写单元测试
 
-我们来看一个案例
+先来看一个案例
 
 ```js
-// 我想使用 vitest 进行单元测试，以下是测试代码是我的测试代码，请你帮我编写一个单元测试：
-
 const obj = reactive({ foo: true, bar: true });
 let temp1, temp2;
 
@@ -101,7 +80,7 @@ obj.foo = false
 obj.bar = false
 ```
 
-我们将这个案例转换成单元测试，如果不会还是可以找 ChatGPT！
+我们将这个案例转换成单元测试，如果不会还是可以找 [ChatGPT](https://ask.vuejs.news/)！
 
 ```js
 it('effectFn1 and effectFn2 should be triggered appropriately', () => {
@@ -136,7 +115,6 @@ it('effectFn1 and effectFn2 should be triggered appropriately', () => {
 
     // 更改 obj.bar，预期 effectFn2 被触发
   	// 更改 obj.bar 时，触发 trigger， 此时 bar 对应的 Set 集合中有 2 个 effectFn2，所以 effectFn2会被执行 2 次，一共 4 次
-  
   	//  bar 对应的 Set 集合中有 2 个 effectFn2 为什么呢？
   	//  当 obj.foo 更新后，effectFn1 会调用，其中会调用 effectFn1 函数，再次触发依赖收集，加上之前的就是 2 个了
   	// set 不是去重吗？  deps.add(activeEffect);  activeEffect 是一个函数，每次函数的地址不一样
@@ -151,7 +129,7 @@ it('effectFn1 and effectFn2 should be triggered appropriately', () => {
 
 ![image-20240118123814652](https://qn.huat.xyz/mac/202401181238736.png)
 
-从 case 我们可以看到出来，当 `foo` 被修改的时候，回调函数没有执行，依赖可能没有收集到。
+从 case 我们可以看到出来，当 `foo` 被修改的时候，回调函数没有执行，猜测依赖可能没有收集到。
 
 
 
@@ -209,15 +187,17 @@ effect(function effectFn1() {
 });
 ```
 
+在浏览器中打印看看：
+
 ![image-20240118103922107](https://qn.huat.xyz/mac/202401181039140.png)
 
-我们在浏览器中可以看到依赖收集的结构，如上图。我们发现当我们去掉 `activeEffect = null;`  这行代码的时候，发现依赖收集了，但是收集错了！当改变 `foo` 的时，会执行 `effectFn2` ，上面的 case 自然也就跑不通了。
+可以看到依赖收集的结构，我们发现当我们去掉 `activeEffect = null;`  这行代码的时候，发现依赖确实被收集了，但是收集错了！当改变 `foo` 的时，会执行 `effectFn2` ，上面的 case 自然也就跑不通了。
 
 
 
 ### 原因
 
-我们用全局变量 `activeEffect` 来存储通过 `effect`函数注册的副作用函数，这意味着同一时刻 `activeEffect`所存储的副作用函数只能有一个。当副作用函数发生嵌套时，内层副作用函数的执行会覆盖 activeEffect的值，并且永远不会恢复到原来的值。这时如果再有响应式数据进行依赖收集，即使这个响应式数据是在外层副作用函数中读取的，它们收集到的副作用函数也都会是内层副作用函数，这就是问题所在。
+我们用全局变量 `activeEffect` 来存储通过 `effect`函数注册的副作用函数，这意味着同一时刻 `activeEffect`所存储的副作用函数只能有一个。当副作用函数发生嵌套时，内层副作用函数的执行会覆盖 `activeEffect`的值，并且永远不会恢复到原来的值。这时如果再有响应式数据进行依赖收集，即使这个响应式数据是在外层副作用函数中读取的，它们收集到的副作用函数也都会是内层副作用函数，这就是问题所在。
 
 ### 解决
 
@@ -227,7 +207,7 @@ effect(function effectFn1() {
 
 
 
-如以下代码所示：
+代码实现：
 
 ```js
 // effect 栈
@@ -273,13 +253,15 @@ pnpm test
 
 ![image-20240118134037363](https://qn.huat.xyz/mac/202401181340431.png)
 
-之前的 case 都能跑过， 可以提代码了。
+之前的 case 都能跑过， 可以放心的提代码了，感受到单测的好处了吧！
 
 相关代码在 `commit： (a813df8)`嵌套 effec ，`git checkout a813df8` 即可查看。 
 
 
 
 ### 流程图
+
+嵌套 effect 执行流程图如下：
 
 ![image-20240118141412503](https://qn.huat.xyz/mac/202401181414561.png)
 
@@ -326,7 +308,7 @@ RangeError: Maximum call stack size exceeded ！！！
 
 ### 问题分析
 
-`obj.counter++;` 实际上等价于 `obj.counter = obj.counter + 1` ， 会先执行 getter 方法在执行 setter，
+`obj.counter++;` 实际上等价于 `obj.counter = obj.counter + 1` ， 会先执行 getter 在执行 setter，
 
 ![image-20240118143412521](https://qn.huat.xyz/mac/202401181434586.png)
 
@@ -338,7 +320,7 @@ RangeError: Maximum call stack size exceeded ！！！
 
 ### 解决
 
-在 `trigger` 动作发生时增加守卫条件：如果`trigger`触发执行的副作用函数与当前正在执行的副作用函数相同，则不触发执行 ，如以下代码所示：
+在 `trigger` 动作发生时增加守卫条件：如果`trigger`触发执行的副作用函数与当前正在执行的副作用函数相同，则不触发执行 ，代码如下：
 
 ```js
 function trigger(target, key) {
@@ -378,6 +360,8 @@ pnpm test
 相关代码在 `commit： (7d029e6)`支持自增运算符 ，`git checkout 7d029e6` 即可查看。 
 
 ### 流程图
+
+整体流程如下
 
 ![image-20240118144512416](https://qn.huat.xyz/mac/202401181445476.png)
 

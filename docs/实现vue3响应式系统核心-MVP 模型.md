@@ -1,4 +1,4 @@
-实现 vue3 响应式系统核心 -- 第一篇
+实现vue3响应式系统核心-MVP 模型
 
 ## 简介
 
@@ -352,7 +352,7 @@ const obj = new Proxy(data, {
   // 拦截读取操作
   get(target, key) {
     // 没有 activeEffect，直接返回
-    if (!activeEffect) return target[key];
+    if (!activeEffect) return
 
     // 根据 target 从“桶”中取得 depsMap，它也是一个 Map 类型：key --> effects
     let depsMap = bucket.get(target);
