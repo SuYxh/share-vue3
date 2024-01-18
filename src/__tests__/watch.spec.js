@@ -50,6 +50,24 @@ describe("watch", () => {
 
     expect(mockFn).toHaveBeenCalledTimes(1);
   })
+
+  it('get newVal and oldVal', () => {
+    // 创建响应式对象
+    const obj = reactive({ foo: 100, bar: 200, age: 10 });
+
+    let newValue = null
+    let oldValue = null
+
+    watch(() => obj.age, (newVal, oldVal) => {
+      newValue = newVal
+      oldValue = oldVal
+    });
+
+    obj.age ++
+
+    expect(newValue).toBe(11);
+    expect(oldValue).toBe(10);
+  })
 });
 
 

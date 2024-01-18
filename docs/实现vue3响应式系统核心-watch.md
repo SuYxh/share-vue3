@@ -220,6 +220,81 @@ export function watch(source, cb) {
 
 
 
+### 获取新值与旧值
+
+看这个 case
+
+```js
+it('get newVal and oldVal', () => {
+  const mockFn = vi.fn();
+
+  // 创建响应式对象
+  const obj = reactive({ foo: 100, bar: 200, age: 10 });
+
+  let newValue = null
+  let oldValue = null
+
+  watch(() => obj.age, (newVal, oldVal) => {
+    newValue = newVal
+    oldValue = oldVal
+  });
+
+  obj.age ++
+
+  expect(newValue).toBe(11);
+  expect(oldValue).toBe(10);
+})
+```
+
+不用运行，肯定跑不过，因为我们都没有去实现。
+
+那么如何获得新值与旧值呢？这需要充分利用 `effect` 函数的 `lazy` 选项，如以下代码所示：
+
+```js
+function watch(source, cb) {
+  let getter;
+  if (typeof source === 'function') {
+    getter = source;
+  } else {
+    getter = () => traverse(source);
+  }
+
+  // 定义旧值与新值
+  let oldValue, newValue;
+
+  // 使用 effect 注册副作用函数时，开启 lazy 选项，并把返回值存储到 effectFn 中以便后续手动调用
+  const effectFn = effect(
+    () => getter(),
+    {
+      lazy: true,
+      scheduler() {
+        // 在 scheduler 中重新执行副作用函数，得到的是新值
+        newValue = effectFn();
+        // 将旧值和新值作为回调函数的参数
+        cb(newValue, oldValue);
+        // 更新旧值，不然下一次会得到错误的旧值
+        oldValue = newValue;
+      }
+    }
+  );
+
+  // 手动调用副作用函数，拿到的值就是旧值
+  oldValue = effectFn();
+}
+```
+
+在这段代码中，最核心的改动是使用 `lazy` 选项创建了一个懒执行的 `effect `。注意上面代码中最下面的部分，我们手动调用 `effectFn` 函数得到的返回值就是旧值，即第一次执行得到的值。当变化发生并触发 `scheduler `调度函数执行时，会重新调用 `effectFn` 函数并得到新值，这样我们就拿到了旧值与新值，接着将它们作为参数传递给回调函数 `cb` 就可以了。最后一件非常重要的事情是，不要忘记使用新值更新旧值：`oldValue = newValue`，否则在下一次变更发生时会得到错误的旧值。
+
+运行单测
+
+![image-20240118192900720](https://qn.huat.xyz/mac/202401181929770.png)
+
+
+
+
+
+
+
 
 
 
