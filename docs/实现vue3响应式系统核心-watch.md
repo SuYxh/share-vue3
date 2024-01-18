@@ -370,6 +370,69 @@ export function watch(source, cb, options) {
 
 ![image-20240118194634966](https://qn.huat.xyz/mac/202401181946016.png)
 
+相关代码在 `commit： (fd0e845)watch 支持 immediate ，`git checkout fd0e845  即可查看。 
+
+
+
+### 代码优化
+
+我们可以发现 `scheduler` 方法中的逻辑和 `options.immediate`  为 `true` 时执行的逻辑一样，那么就可以进行封装:
+
+```js
+export function watch(source, cb, options) {
+  let getter;
+  if (typeof source === "function") {
+    getter = source;
+  } else {
+    getter = () => traverse(source);
+  }
+
+  // 定义旧值与新值
+  let oldValue, newValue;
+
+  // 提取 scheduler 调度函数为一个独立的 job 函数
+  const job = () => {
+    newValue = effectFn();
+    cb(newValue, oldValue);
+    oldValue = newValue;
+  }
+
+  // 使用 effect 注册副作用函数时，开启 lazy 选项，并把返回值存储到 effectFn 中以便后续手动调用
+  const effectFn = effect(() => getter(), {
+    lazy: true,
+    scheduler: job,
+  });
+
+  if (options.immediate) {
+    // 当 immediate 为 true 时立即执行 job，从而触发回调执行
+    job()
+  } else {
+    // 手动调用副作用函数，拿到的值就是旧值
+    oldValue = effectFn();
+  }
+}
+```
+
+### 执行测试命令
+
+```
+pnpm test
+```
+
+我们可以看到，我们修改了代码，之前的 case 出了问题
+
+![image-20240118195124727](https://qn.huat.xyz/mac/202401181951780.png)
+
+原因是当我们没有传 `options` 的时候，`options` 相当于是` undefined`， 取值自然会出错，我们添加一个默认值就好。
+
+![image-20240118195319687](https://qn.huat.xyz/mac/202401181953742.png)
+
+可以看到就全部通过了，我们也逐步体会到了单测的好处！
+
+
+
+
+
 
 
 
