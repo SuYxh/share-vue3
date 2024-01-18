@@ -23,6 +23,30 @@ pnpm i
 
 
 
+启动
+
+```
+pnpm dev
+```
+
+
+
+测试
+
+```
+pnpm test
+```
+
+
+
+启动文档
+
+```
+pnpm docs:dev
+```
+
+
+
 ### 响应式系统
 
 #### 已实现
@@ -41,12 +65,12 @@ pnpm i
 
 #### 系列文章
 
-- [实现vue3响应式系统核心-MVP模型](./docs/实现vue3响应式系统核心-MVP模型.md)
-- [实现vue3响应式系统核心-依赖清理](./docs/实现vue3响应式系统核心-依赖清理.md)
-- [实现vue3响应式系统核心-嵌套effect](./docs/实现vue3响应式系统核心-嵌套effect.md)
-- [实现vue3响应式系统核心-scheduler](./docs/实现vue3响应式系统核心-scheduler.md)
-- [实现vue3响应式系统核心-computed](./docs/实现vue3响应式系统核心-computed.md)
-- [实现vue3响应式系统核心-watch](./docs/实现vue3响应式系统核心-watch.md)
+- [实现vue3响应式系统核心-MVP模型](./docs/reactive/docs/实现vue3响应式系统核心-MVP模型.md)
+- [实现vue3响应式系统核心-依赖清理](./docs/reactive/实现vue3响应式系统核心-依赖清理.md)
+- [实现vue3响应式系统核心-嵌套effect](./docs/reactive/实现vue3响应式系统核心-嵌套effect.md)
+- [实现vue3响应式系统核心-scheduler](./docs/reactive/实现vue3响应式系统核心-scheduler.md)
+- [实现vue3响应式系统核心-computed](./docs/reactive/实现vue3响应式系统核心-computed.md)
+- [实现vue3响应式系统核心-watch](./docs/reactive/实现vue3响应式系统核心-watch.md)
 
 
 
