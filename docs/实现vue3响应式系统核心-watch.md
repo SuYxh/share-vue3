@@ -218,7 +218,7 @@ export function watch(source, cb) {
 
 发现就 ok 啦
 
-
+相关代码在 `commit： (0acd398)watch 支持函数参数 ，`git checkout 0acd398  即可查看。 
 
 ### 获取新值与旧值
 
@@ -289,9 +289,86 @@ function watch(source, cb) {
 
 ![image-20240118192900720](https://qn.huat.xyz/mac/202401181929770.png)
 
+相关代码在 `commit： (5ac39a6)watch 获取新值与旧值 ，`git checkout 5ac39a6  即可查看。 
 
 
 
+### 支持 immediate
+
+看看这个 case
+
+```js
+it('支持 immediate', () => {
+  const mockFn = vi.fn();
+
+  // 创建响应式对象
+  const obj = reactive({ foo: 100, bar: 200, age: 10 });
+
+  let newValue = undefined
+  let oldValue = undefined
+
+  watch(() => obj.age, (newVal, oldVal) => {
+    mockFn()
+    newValue = newVal
+    oldValue = oldVal
+  }, {
+    immediate: true
+  });
+
+  expect(mockFn).toHaveBeenCalledTimes(1);
+  expect(newValue).toBe(10);
+  expect(oldValue).toBe(undefined);
+
+
+  obj.age ++
+  expect(mockFn).toHaveBeenCalledTimes(2);
+  expect(newValue).toBe(11);
+  expect(oldValue).toBe(10);
+})
+```
+
+又是熟悉的老套路，增加一个 `options`，代码如下：
+
+```js
+export function watch(source, cb, options) {
+  let getter;
+  if (typeof source === "function") {
+    getter = source;
+  } else {
+    getter = () => traverse(source);
+  }
+
+  // 定义旧值与新值
+  let oldValue, newValue;
+
+  // 使用 effect 注册副作用函数时，开启 lazy 选项，并把返回值存储到 effectFn 中以便后续手动调用
+  const effectFn = effect(() => getter(), {
+    lazy: true,
+    scheduler() {
+      // 在 scheduler 中重新执行副作用函数，得到的是新值
+      newValue = effectFn();
+      // 将旧值和新值作为回调函数的参数
+      cb(newValue, oldValue);
+      // 更新旧值，不然下一次会得到错误的旧值
+      oldValue = newValue;
+    },
+  });
+
+  if (options.immediate) {
+    // 当 immediate 为 true 时立即执行 job，从而触发回调执行
+    newValue = effectFn();
+    cb(newValue, oldValue);
+    oldValue = newValue;
+  } else {
+    // 手动调用副作用函数，拿到的值就是旧值
+    oldValue = effectFn();
+  }
+}
+```
+
+再次运行单测：
+
+![image-20240118194634966](https://qn.huat.xyz/mac/202401181946016.png)
 
 
 

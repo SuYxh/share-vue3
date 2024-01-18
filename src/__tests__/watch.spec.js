@@ -68,6 +68,34 @@ describe("watch", () => {
     expect(newValue).toBe(11);
     expect(oldValue).toBe(10);
   })
+
+  it('支持 immediate', () => {
+    const mockFn = vi.fn();
+
+    // 创建响应式对象
+    const obj = reactive({ foo: 100, bar: 200, age: 10 });
+
+    let newValue = undefined
+    let oldValue = undefined
+
+    watch(() => obj.age, (newVal, oldVal) => {
+      mockFn()
+      newValue = newVal
+      oldValue = oldVal
+    }, {
+      immediate: true
+    });
+
+    expect(mockFn).toHaveBeenCalledTimes(1);
+    expect(newValue).toBe(10);
+    expect(oldValue).toBe(undefined);
+
+
+    obj.age ++
+    expect(mockFn).toHaveBeenCalledTimes(2);
+    expect(newValue).toBe(11);
+    expect(oldValue).toBe(10);
+  })
 });
 
 

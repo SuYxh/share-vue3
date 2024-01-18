@@ -16,7 +16,7 @@ function traverse(value, seen = new Set()) {
   return value;
 }
 
-export function watch(source, cb) {
+export function watch(source, cb, options) {
   let getter;
   if (typeof source === "function") {
     getter = source;
@@ -40,6 +40,13 @@ export function watch(source, cb) {
     },
   });
 
-  // 手动调用副作用函数，拿到的值就是旧值
-  oldValue = effectFn();
+  if (options.immediate) {
+    // 当 immediate 为 true 时立即执行 job，从而触发回调执行
+    newValue = effectFn();
+    cb(newValue, oldValue);
+    oldValue = newValue;
+  } else {
+    // 手动调用副作用函数，拿到的值就是旧值
+    oldValue = effectFn();
+  }
 }
