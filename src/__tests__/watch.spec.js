@@ -34,6 +34,22 @@ describe("watch", () => {
 
     expect(mockFn).toHaveBeenCalledTimes(2);
   });
+
+  it('支持 getter 函数', () => {
+    const mockFn = vi.fn();
+
+    // 创建响应式对象
+    const obj = reactive({ foo: 100, bar: 200, age: 10 });
+
+    watch(() => obj.age, () => {
+      mockFn()
+    });
+    
+
+    obj.age ++
+
+    expect(mockFn).toHaveBeenCalledTimes(1);
+  })
 });
 
 

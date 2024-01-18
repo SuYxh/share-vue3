@@ -17,9 +17,16 @@ function traverse(value, seen = new Set()) {
 }
 
 export function watch(source, cb) {
+  let getter;
+  if (typeof source === 'function') {
+    getter = source;
+  } else {
+    getter = () => traverse(source);
+  }
+
   effect(
     // 触发读取操作，从而建立联系
-    () => traverse(source),
+    () => getter(),
     {
       scheduler() {
         // 当数据变化时，调用回调函数 cb

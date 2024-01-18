@@ -159,6 +159,69 @@ function watch(source, cb) {
 
 ![image-20240118191058109](https://qn.huat.xyz/mac/202401181910142.png)
 
+相关代码在 `commit： (5063b6b)watch 基础实现 ，`git checkout 5063b6b  即可查看。 
+
+
+
+### 支持函数参数
+
+看一个 case
+
+```js
+it('支持 getter 函数', () => {
+  const mockFn = vi.fn();
+
+  // 创建响应式对象
+  const obj = reactive({ foo: 100, bar: 200, age: 10 });
+
+  watch(() => obj.age, () => {
+    mockFn()
+  });
+
+  obj.age ++
+
+  expect(mockFn).toHaveBeenCalledTimes(1);
+})
+```
+
+运行一下
+
+![image-20240118191803479](https://qn.huat.xyz/mac/202401181918515.png)
+
+发现没有通过，因为我们之前也没有实现对函数的支持，在 watch 中增加一个对第一个参数的判断就好：
+
+```js
+export function watch(source, cb) {
+  let getter;
+  if (typeof source === 'function') {
+    getter = source;
+  } else {
+    getter = () => traverse(source);
+  }
+
+  effect(
+    // 触发读取操作，从而建立联系
+    () => getter(),
+    {
+      scheduler() {
+        // 当数据变化时，调用回调函数 cb
+        cb();
+      },
+    }
+  );
+}
+```
+
+再次运行单测
+
+![image-20240118192047176](https://qn.huat.xyz/mac/202401181920217.png)
+
+发现就 ok 啦
+
+
+
+
+
 
 
 
