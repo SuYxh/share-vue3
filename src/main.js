@@ -52,7 +52,7 @@ export function effect(fn, options = {}) {
 
 export function track(target, key) {
   // 没有 activeEffect，直接返回
-  if (!activeEffect) return
+  if (!activeEffect) return;
   // 根据 target 从“桶”中取得 depsMap，它也是一个 Map 类型：key --> effects
   let depsMap = bucket.get(target);
 
@@ -126,6 +126,12 @@ export function reactive(target) {
       // 派发更新
       trigger(target, key);
       return res;
+    },
+
+    // 拦截 in 操作符
+    has(target, key) {
+      track(target, key);
+      return Reflect.has(target, key);
     },
   });
 }

@@ -176,4 +176,24 @@ describe("reactivity system", () => {
     mockConsoleLog.mockClear();
     global.console.log = originalConsoleLog; // 恢复 console.log
   });
+
+  it("拦截 in 操作符", () => {
+    const mockFn = vi.fn();
+  
+    // 创建响应式对象
+    const obj = reactive({ foo: 100 });
+  
+    effect(function effectFn1() {
+      mockFn()
+      console.log('foo' in obj);
+    })
+  
+    expect(mockFn).toHaveBeenCalledTimes(1);
+  
+    delete obj.foo
+    
+    // debugger
+    // obj.foo
+    expect(mockFn).toHaveBeenCalledTimes(2);
+  });
 });
