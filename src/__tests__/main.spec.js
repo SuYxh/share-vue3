@@ -147,30 +147,33 @@ describe("reactivity system", () => {
     expect(errorOccurred).toBe(false);
   });
 
-  it('should follow the correct order', () => {
+  it("should follow the correct order", () => {
     // 保存原始的 console.log
     const originalConsoleLog = console.log;
     // 创建一个模拟的 console.log 函数
     const mockConsoleLog = vi.fn();
     global.console.log = mockConsoleLog; // 重定向 console.log 到 mock 函数
 
-    const obj = reactive({ foo: 1 })
+    const obj = reactive({ foo: 1 });
 
-    effect(() => {
-      mockConsoleLog(obj.foo);
-    }, {
-      scheduler: function (fn) {
-        setTimeout(fn, 0);
+    effect(
+      () => {
+        mockConsoleLog(obj.foo);
+      },
+      {
+        scheduler: function (fn) {
+          setTimeout(fn, 0);
+        },
       }
-    })
+    );
 
     obj.foo++;
 
-    mockConsoleLog('结束了');
+    mockConsoleLog("结束了");
 
     // 检查调用顺序
     expect(mockConsoleLog.mock.calls[0][0]).toBe(1); // 第一次调用，参数应该是 1
-    expect(mockConsoleLog.mock.calls[1][0]).toBe('结束了'); // 第二次调用，参数应该是 '结束了'
+    expect(mockConsoleLog.mock.calls[1][0]).toBe("结束了"); // 第二次调用，参数应该是 '结束了'
 
     // 清理模拟
     mockConsoleLog.mockClear();
@@ -179,19 +182,19 @@ describe("reactivity system", () => {
 
   it("拦截 in 操作符", () => {
     const mockFn = vi.fn();
-  
+
     // 创建响应式对象
     const obj = reactive({ foo: 100 });
-  
+
     effect(function effectFn1() {
-      mockFn()
-      console.log('foo' in obj);
-    })
-  
+      mockFn();
+      console.log("foo" in obj);
+    });
+
     expect(mockFn).toHaveBeenCalledTimes(1);
-  
-    delete obj.foo
-    
+
+    delete obj.foo;
+
     // debugger
     // obj.foo
     expect(mockFn).toHaveBeenCalledTimes(2);
@@ -201,57 +204,81 @@ describe("reactivity system", () => {
     // 创建响应式对象
     const obj = reactive({ foo: 100 });
     const mockFn = vi.fn();
-  
+
     effect(function effectFn1() {
-      mockFn()
+      mockFn();
 
       for (const key in obj) {
         console.log(key);
       }
-    })
+    });
     expect(mockFn).toHaveBeenCalledTimes(1);
 
-    obj.bar = 2
+    obj.bar = 2;
     expect(mockFn).toHaveBeenCalledTimes(2);
 
-    obj.foo = 100
+    obj.foo = 100;
     expect(mockFn).toHaveBeenCalledTimes(2);
   });
 
   it("拦截对象删除操作", () => {
     const mockFn = vi.fn();
-  
+
     // 创建响应式对象
     const obj = reactive({ foo: 100 });
-  
+
     effect(function effectFn1() {
-      mockFn()
+      mockFn();
       console.log(obj.foo);
-    })
-  
+    });
+
     expect(mockFn).toHaveBeenCalledTimes(1);
-  
-    delete obj.foo
-  
+
+    delete obj.foo;
+
     expect(mockFn).toHaveBeenCalledTimes(2);
   });
 
-  it('newValue === oldValue', () => {
+  it("newValue === oldValue", () => {
     const mockFn = vi.fn();
-    const obj = reactive({ foo: 1, bar: NaN })
+    const obj = reactive({ foo: 1, bar: NaN });
 
     effect(function effectFn() {
-      mockFn()
+      mockFn();
       console.log(obj.foo);
       console.log(obj.bar);
-    })
+    });
 
     expect(mockFn).toHaveBeenCalledTimes(1);
 
-    obj.foo = 1
+    obj.foo = 1;
     expect(mockFn).toHaveBeenCalledTimes(1);
 
-    obj.bar = NaN
+    obj.bar = NaN;
     expect(mockFn).toHaveBeenCalledTimes(1);
-  })
+  });
+
+  it("原型继承属性", () => {
+    const mockFn = vi.fn();
+
+    const obj = {};
+    const proto = { bar: 1 };
+
+    const child = reactive(obj);
+    const parent = reactive(proto);
+
+    // 使用 parent 作为 child 的原型
+    Object.setPrototypeOf(child, parent);
+
+    effect(() => {
+      mockFn()
+      console.log(child.bar); // 1
+    });
+    expect(mockFn).toHaveBeenCalledTimes(1);
+
+    // 修改 child.bar 的值
+    child.bar = 2; // 会导致副作用函数重新执行两次
+    expect(mockFn).toHaveBeenCalledTimes(2);
+
+  });
 });

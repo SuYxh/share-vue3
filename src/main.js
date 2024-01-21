@@ -7,10 +7,12 @@ const effectStack = [];
 
 const ITERATE_KEY = "iterate-key";
 
+const symbolRaw = Symbol('raw')
+
 const TriggerType = {
   SET: "SET",
   ADD: "ADD",
-  DEL: "DEL"
+  DEL: "DEL",
 };
 
 function cleanup(effectFn) {
@@ -134,6 +136,11 @@ export function reactive(target) {
   return new Proxy(target, {
     // 拦截读取操作
     get(target, key, receiver) {
+      // 代理对象可以通过 raw 属性访问原始数据
+      if (key === symbolRaw) {
+        return target;
+      }
+
       const res = Reflect.get(target, key, receiver);
       // 依赖收集
       track(target, key);
@@ -142,7 +149,7 @@ export function reactive(target) {
     // 拦截设置操作
     set(target, key, newVal, receiver) {
       // 先获取旧值
-      const oldVal = target[key]
+      const oldVal = target[key];
       // 如果属性不存在，则说明是在添加新属性，否则是设置已有属性
       const type = Object.prototype.hasOwnProperty.call(target, key)
         ? TriggerType.SET
@@ -150,10 +157,15 @@ export function reactive(target) {
 
       // 设置属性值
       const res = Reflect.set(target, key, newVal, receiver);
-      // 较新值与旧值，只有当它们不全等，并且不都是 NaN 的时候才触发响应
-      if (oldVal !== newVal && (oldVal === oldVal || newVal === newVal)) {
-        trigger(target, key, type);
+
+      // target === receiver.raw 说明 receiver 就是 target 的代理对象
+      if (target === receiver[symbolRaw]) {
+        // 较新值与旧值，只有当它们不全等，并且不都是 NaN 的时候才触发响应
+        if (oldVal !== newVal && (oldVal === oldVal || newVal === newVal)) {
+          trigger(target, key, type);
+        }
       }
+
       return res;
     },
     // 拦截 in 操作符
