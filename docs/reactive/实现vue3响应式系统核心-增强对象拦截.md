@@ -266,4 +266,105 @@ function trigger (target, key, type) {
 单测就已经通过！
 
 
+## 如何拦截对象的删除操作呢？
+
+规范的 13.5.1.2 节中明确定义了 `delete` 操作符的行为，如图所示：
+
+![得到App_2024-01-21_22-01-24](https://qn.huat.xyz/mac/202401212201397.png)
+
+由第 5 步中的 d 子步骤可知，`delete` 操作符的行为依赖` [[Delete]]`内部方法。根据 Proxy 内部方法可知，该内部方法可以使用 `deleteProperty` 拦截：
+
+### 单元测试
+
+```js
+it("拦截对象删除操作", () => {
+  const mockFn = vi.fn();
+
+  // 创建响应式对象
+  const obj = reactive({ foo: 100 });
+
+  effect(function effectFn1() {
+    mockFn()
+    console.log(obj.foo);
+  })
+
+  expect(mockFn).toHaveBeenCalledTimes(1);
+
+  delete obj.foo
+
+  expect(mockFn).toHaveBeenCalledTimes(2);
+});
+```
+
+### 代码实现
+
+```js
+// 拦截删除
+deleteProperty(target, key) {
+  // 检查被操作的属性是否是对象自己的属性
+  const hadKey = Object.prototype.hasOwnProperty.call(target, key);
+  // 使用 Reflect.deleteProperty 完成属性的删除
+  const res = Reflect.deleteProperty(target, key);
+
+  if (res && hadKey) {
+    // 只有当被删除的属性是对象自己的属性并且成功删除时，才触发更新
+    trigger(target, key, TriggerType.DEL);
+  }
+
+  return res;
+},
+```
+
+检查被删除的属性是否属于对象自身，然后调用`Reflect.deleteProperty`函数完成属性的删除工作，只有当这两步的结果都满足条件时，才调用`trigger`函数触发副作用函数重新执行。
+
+⚠️注意： 由于删除操作会使得对象的键变少，它会影响 `for...in` 循环的次数，因此当操作类型为 `DELETE`时，我们也应该触发那些与` ITERATE_KEY` 相关联的副作用函数重新执行：
+
+```js
+// 增加一个条件判断
+if (type === TriggerType.ADD || type === TriggerType.DEL) {
+  // 取得与 ITERATE_KEY 相关联的副作用函数
+  const iterateEffects = depsMap.get(ITERATE_KEY);
+  // 将与 ITERATE_KEY 相关联的副作用函数也添加到 effectsToRun
+  iterateEffects &&
+    iterateEffects.forEach((effectFn) => {
+      if (effectFn !== activeEffect) {
+        effectsToRun.add(effectFn);
+      }
+    });
+}
+```
+
+运行单测
+
+![image-20240121233327263](https://qn.huat.xyz/mac/202401212333326.png)
+
+### 回顾 `in` 操作符单测
+
+![image-20240121233410410](https://qn.huat.xyz/mac/202401212334463.png)
+
+也可以跑通！
+
+## 运行测试
+
+```
+pnpm test
+```
+
+![image-20240121233501751](https://qn.huat.xyz/mac/202401212335801.png)
+
+没有问题！
+
+到此我们就解决了开头我们提出的这几个问题：
+
+- 如何拦截 `in`操作符呢？
+- 如何拦截 `for in` 循环呢？
+- 如何拦截对象的删除操作呢？
+
+进一步完善了我们的响应式系统。
+
+
+
+
+
+
 

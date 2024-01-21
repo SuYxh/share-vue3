@@ -217,4 +217,22 @@ describe("reactivity system", () => {
     obj.foo = 100
     expect(mockFn).toHaveBeenCalledTimes(2);
   });
+
+  it("拦截对象删除操作", () => {
+    const mockFn = vi.fn();
+  
+    // 创建响应式对象
+    const obj = reactive({ foo: 100 });
+  
+    effect(function effectFn1() {
+      mockFn()
+      console.log(obj.foo);
+    })
+  
+    expect(mockFn).toHaveBeenCalledTimes(1);
+  
+    delete obj.foo
+  
+    expect(mockFn).toHaveBeenCalledTimes(2);
+  });
 });

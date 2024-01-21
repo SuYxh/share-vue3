@@ -10,6 +10,7 @@ const ITERATE_KEY = "iterate-key";
 const TriggerType = {
   SET: "SET",
   ADD: "ADD",
+  DEL: "DEL"
 };
 
 function cleanup(effectFn) {
@@ -106,7 +107,7 @@ export function trigger(target, key, type) {
     });
 
   // 只有当操作类型为 'ADD' 时，才触发与 ITERATE_KEY 相关联的副作用函数重新执行
-  if (type === TriggerType.ADD) {
+  if (type === TriggerType.ADD || type === TriggerType.DEL) {
     // 取得与 ITERATE_KEY 相关联的副作用函数
     const iterateEffects = depsMap.get(ITERATE_KEY);
     // 将与 ITERATE_KEY 相关联的副作用函数也添加到 effectsToRun
@@ -138,7 +139,6 @@ export function reactive(target) {
       track(target, key);
       return res;
     },
-
     // 拦截设置操作
     set(target, key, newVal, receiver) {
       // 如果属性不存在，则说明是在添加新属性，否则是设置已有属性
@@ -152,17 +152,29 @@ export function reactive(target) {
       trigger(target, key, type);
       return res;
     },
-
     // 拦截 in 操作符
     has(target, key) {
       track(target, key);
       return Reflect.has(target, key);
     },
-
     // 拦截 for in 循环
     ownKeys(target) {
       track(target, ITERATE_KEY);
       return Reflect.ownKeys(target);
+    },
+    // 拦截删除
+    deleteProperty(target, key) {
+      // 检查被操作的属性是否是对象自己的属性
+      const hadKey = Object.prototype.hasOwnProperty.call(target, key);
+      // 使用 Reflect.deleteProperty 完成属性的删除
+      const res = Reflect.deleteProperty(target, key);
+
+      if (res && hadKey) {
+        // 只有当被删除的属性是对象自己的属性并且成功删除时，才触发更新
+        trigger(target, key, TriggerType.DEL);
+      }
+
+      return res;
     },
   });
 }
