@@ -19,8 +19,10 @@ export default defineConfig({
           { text: '依赖清理', link: '../reactive/实现vue3响应式系统核心-依赖清理.md' },
           { text: '嵌套effect', link: '../reactive/实现vue3响应式系统核心-嵌套effect.md' },
           { text: 'scheduler', link: '../reactive/实现vue3响应式系统核心-scheduler.md' },
-          { text: 'MVP模型', link: '../reactive/实现vue3响应式系统核心-computed.md' },
-          { text: 'MVP模型', link: '../reactive/实现vue3响应式系统核心-watch.md' },
+          { text: 'computed', link: '../reactive/实现vue3响应式系统核心-computed.md' },
+          { text: 'watch', link: '../reactive/实现vue3响应式系统核心-watch.md' },
+          { text: '增强对象拦截', link: '../reactive/实现vue3响应式系统核心-增强对象拦截.md' },
+          { text: '合理触发响应', link: '../reactive/实现vue3响应式系统核心-合理触发响应.md' },
         ]
       }
     ],

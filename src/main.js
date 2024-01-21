@@ -141,6 +141,8 @@ export function reactive(target) {
     },
     // 拦截设置操作
     set(target, key, newVal, receiver) {
+      // 先获取旧值
+      const oldVal = target[key]
       // 如果属性不存在，则说明是在添加新属性，否则是设置已有属性
       const type = Object.prototype.hasOwnProperty.call(target, key)
         ? TriggerType.SET
@@ -148,8 +150,10 @@ export function reactive(target) {
 
       // 设置属性值
       const res = Reflect.set(target, key, newVal, receiver);
-      // 派发更新
-      trigger(target, key, type);
+      // 较新值与旧值，只有当它们不全等，并且不都是 NaN 的时候才触发响应
+      if (oldVal !== newVal && (oldVal === oldVal || newVal === newVal)) {
+        trigger(target, key, type);
+      }
       return res;
     },
     // 拦截 in 操作符

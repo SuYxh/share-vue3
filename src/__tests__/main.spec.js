@@ -235,4 +235,23 @@ describe("reactivity system", () => {
   
     expect(mockFn).toHaveBeenCalledTimes(2);
   });
+
+  it('newValue === oldValue', () => {
+    const mockFn = vi.fn();
+    const obj = reactive({ foo: 1, bar: NaN })
+
+    effect(function effectFn() {
+      mockFn()
+      console.log(obj.foo);
+      console.log(obj.bar);
+    })
+
+    expect(mockFn).toHaveBeenCalledTimes(1);
+
+    obj.foo = 1
+    expect(mockFn).toHaveBeenCalledTimes(1);
+
+    obj.bar = NaN
+    expect(mockFn).toHaveBeenCalledTimes(1);
+  })
 });

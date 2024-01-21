@@ -71,6 +71,8 @@ pnpm docs:dev
 - [实现vue3响应式系统核心-scheduler](./docs/reactive/实现vue3响应式系统核心-scheduler.md)
 - [实现vue3响应式系统核心-computed](./docs/reactive/实现vue3响应式系统核心-computed.md)
 - [实现vue3响应式系统核心-watch](./docs/reactive/实现vue3响应式系统核心-watch.md)
+- [实现vue3响应式系统核心-增强对象拦截](./docs/reactive/实现vue3响应式系统核心-增强对象拦截.md)
+- [实现vue3响应式系统核心-合理触发响应](./docs/reactive/实现vue3响应式系统核心-合理触发响应.md)
 
 
 

@@ -16,13 +16,14 @@
 
 #### 系列文章
 
-- [实现vue3响应式系统核心-MVP模型](./docs/实现vue3响应式系统核心-MVP模型.md)
-- [实现vue3响应式系统核心-依赖清理](./docs/实现vue3响应式系统核心-依赖清理.md)
-- [实现vue3响应式系统核心-嵌套effect](./docs/实现vue3响应式系统核心-嵌套effect.md)
-- [实现vue3响应式系统核心-scheduler](./docs/实现vue3响应式系统核心-scheduler.md)
-- [实现vue3响应式系统核心-computed](./docs/实现vue3响应式系统核心-computed.md)
-- [实现vue3响应式系统核心-watch](./docs/实现vue3响应式系统核心-watch.md)
-
+- [实现vue3响应式系统核心-MVP模型](./实现vue3响应式系统核心-MVP模型.md)
+- [实现vue3响应式系统核心-依赖清理](./实现vue3响应式系统核心-依赖清理.md)
+- [实现vue3响应式系统核心-嵌套effect](./实现vue3响应式系统核心-嵌套effect.md)
+- [实现vue3响应式系统核心-scheduler](./实现vue3响应式系统核心-scheduler.md)
+- [实现vue3响应式系统核心-computed](./实现vue3响应式系统核心-computed.md)
+- [实现vue3响应式系统核心-watch](./实现vue3响应式系统核心-watch.md)
+- [实现vue3响应式系统核心-增强对象拦截](./实现vue3响应式系统核心-增强对象拦截.md)
+- [实现vue3响应式系统核心-合理触发响应](./实现vue3响应式系统核心-合理触发响应.md)
 
 
 #### 流程图
