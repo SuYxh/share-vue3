@@ -7,7 +7,7 @@ const effectStack = [];
 
 const ITERATE_KEY = "iterate-key";
 
-const symbolRaw = Symbol('raw')
+const symbolRaw = Symbol("raw");
 
 const TriggerType = {
   SET: "SET",
@@ -131,8 +131,7 @@ export function trigger(target, key, type) {
   });
 }
 
-// 对原始数据的代理
-export function reactive(target) {
+export function createReactive(target, isShallow = false) {
   return new Proxy(target, {
     // 拦截读取操作
     get(target, key, receiver) {
@@ -142,6 +141,16 @@ export function reactive(target) {
       }
 
       const res = Reflect.get(target, key, receiver);
+
+      //  如果是浅响应，则直接返回原始值
+      if (isShallow) {
+        return res;
+      }
+
+      if (typeof res === "object" && res !== null) {
+        return reactive(res);
+      }
+
       // 依赖收集
       track(target, key);
       return res;
@@ -193,4 +202,13 @@ export function reactive(target) {
       return res;
     },
   });
+}
+
+// 对原始数据的代理
+export function reactive(target) {
+  return createReactive(target);
+}
+
+export function shallowReactive(target) {
+  return createReactive(target, true);
 }

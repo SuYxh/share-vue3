@@ -23,6 +23,7 @@ export default defineConfig({
           { text: 'watch', link: '../reactive/实现vue3响应式系统核心-watch.md' },
           { text: '增强对象拦截', link: '../reactive/实现vue3响应式系统核心-增强对象拦截.md' },
           { text: '合理触发响应', link: '../reactive/实现vue3响应式系统核心-合理触发响应.md' },
+          { text: 'shallowReactive', link: '../reactive/实现vue3响应式系统核心-shallowReactive.md' },
         ]
       }
     ],

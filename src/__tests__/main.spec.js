@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { effect, reactive } from "../main";
+import { effect, reactive, shallowReactive } from "../main";
 
 describe("reactivity system", () => {
   it("should run the effect function when reactive properties change", async () => {
@@ -281,4 +281,36 @@ describe("reactivity system", () => {
     expect(mockFn).toHaveBeenCalledTimes(2);
 
   });
+
+  it('深响应 reactive', () => {
+    const mockFn = vi.fn();
+
+    const obj = reactive({ foo: { bar: 1 } })
+
+    effect(function effectFn() {
+      mockFn()
+      console.log(obj.foo.bar);
+    })
+    expect(mockFn).toHaveBeenCalledTimes(1);
+
+
+    obj.foo.bar = 2
+    expect(mockFn).toHaveBeenCalledTimes(2);
+  })
+
+  it('浅响应 shallowReactive', () => {
+    const mockFn = vi.fn();
+
+    const obj = shallowReactive({ foo: { bar: 1 } })
+
+    effect(function effectFn() {
+      mockFn()
+      console.log(obj.foo.bar);
+    })
+    expect(mockFn).toHaveBeenCalledTimes(1);
+
+
+    obj.foo.bar = 2
+    expect(mockFn).toHaveBeenCalledTimes(1);
+  })
 });

@@ -24,6 +24,7 @@
 - [实现vue3响应式系统核心-watch](./实现vue3响应式系统核心-watch.md)
 - [实现vue3响应式系统核心-增强对象拦截](./实现vue3响应式系统核心-增强对象拦截.md)
 - [实现vue3响应式系统核心-合理触发响应](./实现vue3响应式系统核心-合理触发响应.md)
+- [实现vue3响应式系统核心-shallowReactive](./实现vue3响应式系统核心-shallowReactive.md)
 
 
 #### 流程图
