@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { effect, reactive, shallowReactive } from "../main";
+import { effect, reactive, shallowReactive, readonly, shallowReadonly } from "../main";
 
 describe("reactivity system", () => {
   it("should run the effect function when reactive properties change", async () => {
@@ -312,5 +312,36 @@ describe("reactivity system", () => {
 
     obj.foo.bar = 2
     expect(mockFn).toHaveBeenCalledTimes(1);
+  })
+
+  it('只读 readonly', () => {
+    const consoleSpy = vi.spyOn(console, "warn"); // 捕获 console.warn
+
+    const obj = readonly({ foo: { bar: 1 } })
+
+    effect(function effectFn() {
+      consoleSpy()
+      console.log(obj.foo.bar);
+    })
+    expect(consoleSpy).toHaveBeenCalledTimes(1);
+
+    obj.foo.bar = 2
+    expect(consoleSpy).toHaveBeenCalledTimes(2);
+  })
+
+  it('浅只读 shallowReadonly', () => {
+    const consoleSpy = vi.spyOn(console, "warn"); // 捕获 console.warn
+
+    const obj = shallowReadonly({ foo: { bar: 1 } })
+
+    effect(function effectFn() {
+      consoleSpy()
+      console.log(obj.foo.bar);
+    })
+
+    expect(consoleSpy).toHaveBeenCalledTimes(1);
+
+    obj.foo.bar = 2
+    expect(consoleSpy).toHaveBeenCalledTimes(1);
   })
 });

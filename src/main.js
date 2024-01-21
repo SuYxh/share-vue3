@@ -131,7 +131,7 @@ export function trigger(target, key, type) {
   });
 }
 
-export function createReactive(target, isShallow = false) {
+export function createReactive(target, isShallow = false, isReadonly = false) {
   return new Proxy(target, {
     // 拦截读取操作
     get(target, key, receiver) {
@@ -148,15 +148,24 @@ export function createReactive(target, isShallow = false) {
       }
 
       if (typeof res === "object" && res !== null) {
-        return reactive(res);
+        return isReadonly ? readonly(res) : reactive(res);
       }
 
-      // 依赖收集
-      track(target, key);
+      // 将副作用函数 activeEffect 添加到存储副作用函数的桶中
+      if (!isReadonly) {
+        track(target, key);
+      }
+
       return res;
     },
     // 拦截设置操作
     set(target, key, newVal, receiver) {
+      // 如果是只读的，则打印警告信息并返回
+      if (isReadonly) {
+        console.warn(`属性 ${key} 是只读的`);
+        return true;
+      }
+
       // 先获取旧值
       const oldVal = target[key];
       // 如果属性不存在，则说明是在添加新属性，否则是设置已有属性
@@ -189,6 +198,12 @@ export function createReactive(target, isShallow = false) {
     },
     // 拦截删除
     deleteProperty(target, key) {
+      // 如果是只读的，则打印警告信息并返回
+      if (isReadonly) {
+        console.warn(`属性 ${key} 是只读的`);
+        return true;
+      }
+
       // 检查被操作的属性是否是对象自己的属性
       const hadKey = Object.prototype.hasOwnProperty.call(target, key);
       // 使用 Reflect.deleteProperty 完成属性的删除
@@ -211,4 +226,12 @@ export function reactive(target) {
 
 export function shallowReactive(target) {
   return createReactive(target, true);
+}
+
+export function readonly(target) {
+  return createReactive(target, false, true);
+}
+
+export function shallowReadonly(target) {
+  return createReactive(target, true, true);
 }
