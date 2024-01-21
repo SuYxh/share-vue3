@@ -102,9 +102,168 @@ has(target, key) {
 
 
 
+## 拦截 `for...in` 循环
+
+这里直接给出答案：可以使用ownKeys拦截函数来拦截。
+
+### 单元测试
+
+```js
+it("拦截 for in", () => {
+  // 创建响应式对象
+  const obj = reactive({ foo: 100 });
+  const mockFn = vi.fn();
+
+  effect(function effectFn1() {
+    mockFn()
+
+    for (const key in obj) {
+      console.log(key);
+    }
+  })
+  expect(mockFn).toHaveBeenCalledTimes(1);
+
+  obj.bar = 2
+  expect(mockFn).toHaveBeenCalledTimes(2);
+
+  obj.foo = 100
+  expect(mockFn).toHaveBeenCalledTimes(2);
+});
+```
 
 
 
+### 代码实现
+
+```js
+const ITERATE_KEY = "iterate-key";
+
+
+// 拦截 for in 循环
+ownKeys(target) {
+  track(target, ITERATE_KEY);
+  return Reflect.ownKeys(target);
+},
+```
+
+### 原因分析
+
+将 `ITERATE_KEY` 作为追踪的` key` ，为什么这么做呢？
+
+这是因为 `ownKeys` 拦截函数与` get/set` 拦截函数不同，在`set /get`中，我们可以得到具体操作的 `key`，但是在`ownKeys`中，我们只能拿到目标对象` target`。 `ownKeys` 用来获取一个对象的所有属于自己的键值，这个操作明显不与任何具体的键进行绑定，因此我们只能够构造唯一的 `key` 作为标识，即 `ITERATE_KEY`。
+
+既然追踪的是 `ITERATE_KEY`，那么相应地，在触发响应的时候也应该触发它才行。但是在什么情况下，对数据的操作需要触发与` ITERATE_KEY` 相关联的副作用函数重新执行呢？
+
+为对象添加了新属性。因为，当为对象添加新属性时，会对 `for...in` 循环产生影响，所以需要触发与`ITERATE_KEY`相关联的副作用函数重新执行。
+
+在我们之前写的 `set`函数中，当为对象 `obj` 添加新的 `bar` 属性时，会触发 `set`拦截函数执行。此时 `set`拦截函数接收到的 `key`就是字符串 `bar`，因此最终调用 `trigger`函数时也只是触发了与 `bar`相关联的副作用函数重新执行。
+
+我们知道` for...in`循环是在副作用函数与` ITERATE_KEY`之间建立联系，这和 `bar`一点儿关系都没有，因此当我们尝试执行 `obj.bar = 2`操作时，并不能正确地触发响应。
+
+通过调试可以看到：
+
+![image-20240121230921453](https://qn.huat.xyz/mac/202401212309493.png)
+
+### 解决
+
+当添加属性时，我们将那些与` ITERATE_KEY` 相关联的副作用函数也取出来执行就可以了：
+
+```js
+function trigger(target, key) {
+  const depsMap = bucket.get(target);
+  if (!depsMap) return;
+  // 取得与 key 相关联的副作用函数
+  const effects = depsMap.get(key);
+  // 取得与 ITERATE_KEY 相关联的副作用函数
+  const iterateEffects = depsMap.get(ITERATE_KEY);
+
+  const effectsToRun = new Set();
+  // 将与 key 相关联的副作用函数添加到 effectsToRun
+  effects && effects.forEach(effectFn => {
+    if (effectFn !== activeEffect) {
+      effectsToRun.add(effectFn);
+    }
+  });
+  // 将与 ITERATE_KEY 相关联的副作用函数也添加到 effectsToRun
+  iterateEffects && iterateEffects.forEach(effectFn => {
+    if (effectFn !== activeEffect) {
+      effectsToRun.add(effectFn);
+    }
+  });
+
+  effectsToRun.forEach(effectFn => {
+    if (effectFn.options.scheduler) {
+      effectFn.options.scheduler(effectFn);
+    } else {
+      effectFn();
+    }
+  });
+}
+```
+
+### 运行单测
+
+![image-20240121231759224](https://qn.huat.xyz/mac/202401212317267.png)
+
+我们可以看到，单测并没有通过。从单测可以看出来，当我们修改值的时候，也触发了副作用函数的执行。
+
+这又是怎么回事呢？
+
+### 问题分析-修改 foo
+
+与添加新属性不同，修改属性不会产生新的 `key` ，所以不会对 `for...in` 循环产生影响。所以在这种情况下，我们不需要触发副作用函数重新执行，否则会造成不必要的性能开销。
+
+### 解决
+
+那么我们在`set` 拦截函数内能够区分操作的类型，到底是添加新属性还是设置已有属性:
+
+```js
+// 拦截设置操作
+set(target, key, newVal, receiver) {
+  // 如果属性不存在，则说明是在添加新属性，否则是设置已有属性
+  const type = Object.prototype.hasOwnProperty.call(target, key)
+    ? TriggerType.SET
+    : TriggerType.ADD;
+
+  // 设置属性值
+  const res = Reflect.set(target, key, newVal, receiver);
+  // 派发更新
+  trigger(target, key, type);
+  return res;
+},
+```
+
+我们优先使用`Object.prototype.hasOwnProperty`检查当前操作的属性是否已经存在于目标对象上，如果存在，则说明当前操作类型为 `SET`，即修改属性值；否则认为当前操作类型为 `ADD`，即添加新属性。
+
+在 `trigger` 函数内就可以通过类型 `type`来区分当前的操作类型，并且只有当操作类型 `type`为 `ADD`时，才会触发与`ITERATE_KEY`相关联的副作用函数重新执行，这样就避免了不必要的性能损耗：
+
+```js
+function trigger (target, key, type) {
+  
+  // ... 
+  
+  // 只有当操作类型为 'ADD' 时，才触发与 ITERATE_KEY 相关联的副作用函数重新执行
+  if (type === TriggerType.ADD) {
+    // 取得与 ITERATE_KEY 相关联的副作用函数
+    const iterateEffects = depsMap.get(ITERATE_KEY);
+
+    iterateEffects &&
+      iterateEffects.forEach((effectFn) => {
+        if (effectFn !== activeEffect) {
+          effectsToRun.add(effectFn);
+        }
+      });
+  }
+  
+  // ...
+}
+```
+
+再次运行单测
+
+![image-20240121232707982](https://qn.huat.xyz/mac/202401212327042.png)
+
+单测就已经通过！
 
 
 

@@ -5,6 +5,13 @@ let activeEffect = null;
 // effect 栈
 const effectStack = [];
 
+const ITERATE_KEY = "iterate-key";
+
+const TriggerType = {
+  SET: "SET",
+  ADD: "ADD",
+};
+
 function cleanup(effectFn) {
   // 遍历 effectFn.deps 数组
   for (let i = 0; i < effectFn.deps.length; i++) {
@@ -77,7 +84,7 @@ export function track(target, key) {
   activeEffect.deps.push(deps);
 }
 
-export function trigger(target, key) {
+export function trigger(target, key, type) {
   // 获取与目标对象相关联的依赖映射
   const depsMap = bucket.get(target);
   // 如果没有依赖映射，则直接返回
@@ -97,6 +104,19 @@ export function trigger(target, key) {
         effectsToRun.add(effectFn);
       }
     });
+
+  // 只有当操作类型为 'ADD' 时，才触发与 ITERATE_KEY 相关联的副作用函数重新执行
+  if (type === TriggerType.ADD) {
+    // 取得与 ITERATE_KEY 相关联的副作用函数
+    const iterateEffects = depsMap.get(ITERATE_KEY);
+    // 将与 ITERATE_KEY 相关联的副作用函数也添加到 effectsToRun
+    iterateEffects &&
+      iterateEffects.forEach((effectFn) => {
+        if (effectFn !== activeEffect) {
+          effectsToRun.add(effectFn);
+        }
+      });
+  }
 
   // 遍历并执行所有相关的副作用函数
   effectsToRun.forEach((effectFn) => {
@@ -121,10 +141,15 @@ export function reactive(target) {
 
     // 拦截设置操作
     set(target, key, newVal, receiver) {
+      // 如果属性不存在，则说明是在添加新属性，否则是设置已有属性
+      const type = Object.prototype.hasOwnProperty.call(target, key)
+        ? TriggerType.SET
+        : TriggerType.ADD;
+
       // 设置属性值
       const res = Reflect.set(target, key, newVal, receiver);
       // 派发更新
-      trigger(target, key);
+      trigger(target, key, type);
       return res;
     },
 
@@ -132,6 +157,12 @@ export function reactive(target) {
     has(target, key) {
       track(target, key);
       return Reflect.has(target, key);
+    },
+
+    // 拦截 for in 循环
+    ownKeys(target) {
+      track(target, ITERATE_KEY);
+      return Reflect.ownKeys(target);
     },
   });
 }

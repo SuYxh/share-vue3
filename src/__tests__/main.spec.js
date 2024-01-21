@@ -196,4 +196,25 @@ describe("reactivity system", () => {
     // obj.foo
     expect(mockFn).toHaveBeenCalledTimes(2);
   });
+
+  it("拦截 for in", () => {
+    // 创建响应式对象
+    const obj = reactive({ foo: 100 });
+    const mockFn = vi.fn();
+  
+    effect(function effectFn1() {
+      mockFn()
+
+      for (const key in obj) {
+        console.log(key);
+      }
+    })
+    expect(mockFn).toHaveBeenCalledTimes(1);
+
+    obj.bar = 2
+    expect(mockFn).toHaveBeenCalledTimes(2);
+
+    obj.foo = 100
+    expect(mockFn).toHaveBeenCalledTimes(2);
+  });
 });
