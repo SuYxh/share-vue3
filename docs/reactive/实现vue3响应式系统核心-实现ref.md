@@ -46,7 +46,7 @@ name.value = 'vue3';
 
 所以 vue 做了一层封装，就算他不做，以后也会有人做，一旦各种方案都有，就会比较混乱，还是官方去做了这件事。
 
-## 基础 ref
+## 实现 ref
 
 ### 单元测试
 
@@ -93,6 +93,67 @@ function ref(val) {
 没有任何问题。一个最基础的 ref 就实现了。
 
 
+
+## 实现isRef
+
+如何区分 `refVa` 到底是原始值的包裹对象，还是一个非原始值的响应式数据，如以下代码所示：
+
+```js
+const refVal1 = ref(1)
+const refVal2 = reactive({ value: 1 })
+```
+
+这段代码中的 `refVal1` 和 `refVal2`有什么区别呢？
+
+从我们的实现来看，它们没有任何区别。但是，我们有必要区分一个数据到底是不是 `ref`，因为后续会有自动脱 `ref` 能力。
+
+### 单元测试
+
+```js
+it("is ref", () => {
+  const refVal1 = ref(1)
+  const refVal2 = reactive({ value: 1 })
+
+  const flag1 = isRef(refVal1)
+  const flag2 = isRef(refVal2)
+
+  expect(flag1).toBe(true)
+  expect(flag2).toBe(false)
+})
+```
+
+
+
+### 实现
+
+```js
+function ref(val) {
+  const wrapper = {
+    value: val
+  };
+
+  // 使用 Object.defineProperty 在 wrapper 对象上定义一个不可枚举的属性 __v_isRef，并且值为 true
+  Object.defineProperty(wrapper, '__v_isRef', {
+    value: true
+  });
+
+  return reactive(wrapper);
+}
+```
+
+使用 `Object.defineProperty` 为包裹对象 `wrapper` 定义了一个不可枚举且不可写的属性`__v_isRef`，它的值为`true`，代表这个对象是一个`ref`，而非普通对象。
+
+在实现一下 `isRef` 函数：
+
+```js
+function isRef(refVal) {
+  return !!refVal['__v_isRef']
+}
+```
+
+### 运行单测
+
+![image-20240122233701657](https://qn.huat.xyz/mac/202401222337704.png)
 
 
 

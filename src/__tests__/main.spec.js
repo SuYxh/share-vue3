@@ -5,7 +5,8 @@ import {
   shallowReactive,
   readonly,
   shallowReadonly,
-  ref
+  ref,
+  isRef
 } from "../main";
 
 describe("reactivity system", () => {
@@ -506,4 +507,15 @@ describe("reactivity system", () => {
     refVal.value = 2;
     expect(mockFn).toHaveBeenCalledTimes(2);
   });
+
+  it("is ref", () => {
+    const refVal1 = ref(1)
+    const refVal2 = reactive({ value: 1 })
+
+    const flag1 = isRef(refVal1)
+    const flag2 = isRef(refVal2)
+
+    expect(flag1).toBe(true)
+    expect(flag2).toBe(false)
+  })
 });
