@@ -6,7 +6,8 @@ import {
   readonly,
   shallowReadonly,
   ref,
-  isRef
+  isRef,
+  toRef
 } from "../main";
 
 describe("reactivity system", () => {
@@ -492,7 +493,7 @@ describe("reactivity system", () => {
 
   it("ref 基础能力", () => {
     const mockFn = vi.fn();
- 
+
     // 创建原始值的响应式数据
     const refVal = ref(1);
 
@@ -509,13 +510,82 @@ describe("reactivity system", () => {
   });
 
   it("is ref", () => {
-    const refVal1 = ref(1)
-    const refVal2 = reactive({ value: 1 })
+    const refVal1 = ref(1);
+    const refVal2 = reactive({ value: 1 });
 
-    const flag1 = isRef(refVal1)
-    const flag2 = isRef(refVal2)
+    const flag1 = isRef(refVal1);
+    const flag2 = isRef(refVal2);
 
-    expect(flag1).toBe(true)
-    expect(flag2).toBe(false)
+    expect(flag1).toBe(true);
+    expect(flag2).toBe(false);
+  });
+
+  it("toRef-1", () => {
+    const mockFn = vi.fn();
+
+    // obj 是响应式数据
+    const obj = reactive({ foo: 1, bar: 2 });
+
+    // 将响应式数据展开到一个新的对象 newObj
+    // const newObj = {
+    //   ...obj,
+    // };
+
+    const newObj = {
+      foo: toRef(obj, 'foo'),
+      bar: toRef(obj, 'bar')
+    }
+
+    effect(() => {
+      mockFn()
+      // 在副作用函数内通过新的对象 newObj 读取 foo 属性值
+      console.log(newObj.foo.value);
+    });
+    expect(mockFn).toHaveBeenCalledTimes(1);
+
+
+    // 很显然，此时修改 obj.foo 并不会触发响应
+    obj.foo = 100;
+    expect(mockFn).toHaveBeenCalledTimes(2);
+  });
+
+  it("toRef-2", () => {
+    const mockFn = vi.fn();
+
+    // obj 是响应式数据
+    const obj = reactive({ foo: 1, bar: 2 });
+
+    // 将响应式数据展开到一个新的对象 newObj
+    const newObj = {
+      foo: {
+        get value() {
+          return obj.foo
+        }
+      },
+      bar: {
+        get value() {
+          return obj.bar
+        }
+      }
+    };
+
+    effect(() => {
+      mockFn()
+      // 在副作用函数内通过新的对象 newObj 读取 foo 属性值
+      console.log(newObj.foo.value);
+    });
+    expect(mockFn).toHaveBeenCalledTimes(1);
+
+
+    // 很显然，此时修改 obj.foo 并不会触发响应
+    obj.foo = 100;
+    expect(mockFn).toHaveBeenCalledTimes(2);
+  });
+
+  it('toRef的数据是一个 ref', () => {
+    const obj = reactive({ foo: 1, bar: 2 });
+    const foo = toRef(obj, 'foo')
+    const flag = isRef(foo)
+    expect(flag).toBe(true)
   })
 });

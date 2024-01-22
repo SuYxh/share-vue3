@@ -157,3 +157,241 @@ function isRef(refVal) {
 
 
 
+## 实现 toRef 
+
+想必响应式丢失问题，大家都不陌生。这里介绍一下这个现象：
+
+```js
+export default {
+  setup() {
+    // 响应式数据
+    const obj = reactive({ foo: 1, bar: 2 });
+
+    // 将数据暴露到模板中
+    return {
+      ...obj
+    };
+  }
+};
+```
+
+如果我们在模板中直接这样写： 
+
+```html
+<p>{{ foo }} / {{ bar }}</p>
+```
+
+那么当修改数据， `obj.foo = 100` 时，模板并不会发生变化。
+
+为什么会导致响应丢失呢？这是由展开运算符（...）导致的。
+
+```js
+return {
+	...obj
+}
+
+return {
+	foo: 1,
+	bar:2
+}
+```
+
+这 2 种写法是等价的。这其实就是返回了一个普通对象，它不具有任何响应式能力。只有经过`reactive`代理过的才是响应式数据。
+
+那么解构呢？
+
+```js
+const { foo, bar } = reactive({ foo: 1, bar: 2 });
+
+return {
+	foo, 
+	bar
+}
+```
+
+解构的本质： 创建新变量 -> 枚举属性 -> 复制属性并赋值。
+
+一样也相当于是返回了一个普通对象。
+
+
+
+### 单元测试
+
+```js
+it("toRef-1", () => {
+  const mockFn = vi.fn();
+
+  // obj 是响应式数据
+  const obj = reactive({ foo: 1, bar: 2 });
+
+  // 将响应式数据展开到一个新的对象 newObj
+  const newObj = {
+    ...obj,
+  };
+
+  effect(() => {
+    mockFn()
+    // 在副作用函数内通过新的对象 newObj 读取 foo 属性值
+    console.log(newObj.foo);
+  });
+  expect(mockFn).toHaveBeenCalledTimes(1);
+
+
+  // 很显然，此时修改 obj.foo 并不会触发响应
+  obj.foo = 100;
+  expect(mockFn).toHaveBeenCalledTimes(2);
+});
+```
+
+### 问题分析
+
+创建一个响应式的数据对象 `obj`，然后使用展开运算符得到一个新的普通对象 `newObj`。这里的关键点在于，副作用函数内访问的是普通对象 `newObj`，它没有任何响应能力，所以当我们尝试修改 `obj.foo`的值时，不会触发副作用函数重新执行。
+
+### 解决
+
+我们修改一下单测，
+
+```js
+it("toRef-2", () => {
+  const mockFn = vi.fn();
+
+  // obj 是响应式数据
+  const obj = reactive({ foo: 1, bar: 2 });
+
+  // 将响应式数据展开到一个新的对象 newObj
+  const newObj = {
+    foo: {
+      get value() {
+        return obj.foo
+      }
+    },
+    bar: {
+      get value() {
+        return obj.bar
+      }
+    }
+  };
+
+  effect(() => {
+    mockFn()
+    // 在副作用函数内通过新的对象 newObj 读取 foo 属性值
+    console.log(newObj.foo.value);
+  });
+  expect(mockFn).toHaveBeenCalledTimes(1);
+
+
+  // 很显然，此时修改 obj.foo 并不会触发响应
+  obj.foo = 100;
+  expect(mockFn).toHaveBeenCalledTimes(2);
+});
+```
+
+运行看看：
+
+![image-20240122235350514](https://qn.huat.xyz/mac/202401222353570.png)
+
+没有问题。
+
+### 封装
+
+根据上述 case 可以看出，当在副作用函数内读取`newObj.foo`时，等价于间接读取了`obj.foo`的值。这样响应式数据自然能够与副作用函数建立响应联系。于是，当我们尝试修改 `obj.foo`的值时，能够触发副作用函数重新执行。
+
+于是我们可以进行一个简单的封装
+
+```js
+function toRef(obj, key) {
+  const wrapper = {
+    get value() {
+      return obj[key];
+    }
+  };
+
+  return wrapper;
+}
+```
+
+
+
+### 运行单测
+
+我们修改一下 case 如下：
+
+```js
+it("toRef-1", () => {
+  const mockFn = vi.fn();
+
+  // obj 是响应式数据
+  const obj = reactive({ foo: 1, bar: 2 });
+
+  // 将响应式数据展开到一个新的对象 newObj
+  // const newObj = {
+  //   ...obj,
+  // };
+
+  const newObj = {
+    foo: toRef(obj, 'foo'),
+    bar: toRef(obj, 'bar')
+  }
+
+  effect(() => {
+    mockFn()
+    // 在副作用函数内通过新的对象 newObj 读取 foo 属性值
+    console.log(newObj.foo.value);
+  });
+  expect(mockFn).toHaveBeenCalledTimes(1);
+
+
+  // 很显然，此时修改 obj.foo 并不会触发响应
+  obj.foo = 100;
+  expect(mockFn).toHaveBeenCalledTimes(2);
+});
+```
+
+就可以通过了
+
+![image-20240123000000075](https://qn.huat.xyz/mac/202401230000130.png)
+
+
+
+### 优化
+
+将通过 `toRef` 转换后得到的结果视为真正` ref`数据，为此我们需要为` toRef`函数增加一层拦截：
+
+```js
+function toRef(obj, key) {
+  const wrapper = {
+    get value() {
+      return obj[key];
+    },
+  };
+
+  // 定义 __v_isRef 属性
+  Object.defineProperty(wrapper, "__v_isRef", {
+    value: true,
+  });
+
+  return wrapper;
+}
+```
+
+
+
+在编写一个单测
+
+```js
+it('toRef的数据是一个 ref', () => {
+  const obj = reactive({ foo: 1, bar: 2 });
+  const foo = toRef(obj, 'foo')
+  const flag = isRef(foo)
+  expect(flag).toBe(true)
+})
+```
+
+运行一下
+
+![image-20240123000631632](https://qn.huat.xyz/mac/202401230006700.png)
+
+也是没有问题
+
+
+

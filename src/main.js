@@ -20,9 +20,9 @@ const reactiveMap = new Map();
 
 const arrayInstrumentations = {};
 
-['includes', 'indexOf', 'lastIndexOf'].forEach(method => {
+["includes", "indexOf", "lastIndexOf"].forEach((method) => {
   const originMethod = Array.prototype[method];
-  arrayInstrumentations[method] = function(...args) {
+  arrayInstrumentations[method] = function (...args) {
     // this 是代理对象，先在代理对象中查找，将结果存储到 res 中
     let res = originMethod.apply(this, args);
 
@@ -35,16 +35,15 @@ const arrayInstrumentations = {};
   };
 });
 
-
 // 一个标记变量，代表是否进行追踪。默认值为 true，即允许追踪
 let shouldTrack = true;
 
 // 重写数组的 push、pop、shift、unshift 以及 splice 方法
-['push', 'pop', 'shift', 'unshift', 'splice'].forEach(method => {
+["push", "pop", "shift", "unshift", "splice"].forEach((method) => {
   // 取得原始方法
   const originMethod = Array.prototype[method];
   // 重写
-  arrayInstrumentations[method] = function(...args) {
+  arrayInstrumentations[method] = function (...args) {
     // 在调用原始方法之前，禁止追踪
     shouldTrack = false;
     // 方法的默认行为
@@ -330,12 +329,12 @@ export function shallowReadonly(target) {
 export function ref(val) {
   // 在 ref 函数内部创建包裹对象
   const wrapper = {
-    value: val
+    value: val,
   };
 
   // 使用 Object.defineProperty 在 wrapper 对象上定义一个不可枚举的属性 __v_isRef，并且值为 true
-  Object.defineProperty(wrapper, '__v_isRef', {
-    value: true
+  Object.defineProperty(wrapper, "__v_isRef", {
+    value: true,
   });
 
   // 将包裹对象变成响应式数据
@@ -343,5 +342,20 @@ export function ref(val) {
 }
 
 export function isRef(refVal) {
-  return !!refVal['__v_isRef']
+  return !!refVal["__v_isRef"];
+}
+
+export function toRef(obj, key) {
+  const wrapper = {
+    get value() {
+      return obj[key];
+    },
+  };
+
+  // 定义 __v_isRef 属性
+  Object.defineProperty(wrapper, "__v_isRef", {
+    value: true,
+  });
+
+  return wrapper;
 }
