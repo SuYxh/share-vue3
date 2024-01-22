@@ -395,3 +395,51 @@ it('toRef的数据是一个 ref', () => {
 
 
 
+## 实现toRefs
+
+上文实现了`toRef`，但如果响应式数据 `obj` 的键非常多，我们还是要花费很大力气来做这一层转换。为此，我们可以封装 `toRefs` 函数，来批量地完成转换。
+
+### 单元测试
+
+```js
+it('toRefs', () => {
+  const obj = reactive({ foo: 1, bar: 2 });
+  const refObj = toRefs(obj)
+  const flag1 = isRef(refObj.foo)
+  const flag2 = isRef(refObj.bar)
+
+  expect(flag1).toBe(true)
+  expect(flag2).toBe(true)
+})
+```
+
+
+
+### 代码实现
+
+```js
+function toRefs(obj) {
+  const ret = {};
+  // 使用 for...in 循环遍历对象
+  for (const key in obj) {
+    // 逐个调用 toRef 完成转换
+    ret[key] = toRef(obj, key);
+  }
+  return ret;
+}
+```
+
+
+
+### 运行单测
+
+![image-20240123001112684](https://qn.huat.xyz/mac/202401230011757.png)
+
+
+
+
+
+
+
+
+

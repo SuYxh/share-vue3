@@ -359,3 +359,13 @@ export function toRef(obj, key) {
 
   return wrapper;
 }
+
+export function toRefs(obj) {
+  const ret = {};
+  // 使用 for...in 循环遍历对象
+  for (const key in obj) {
+    // 逐个调用 toRef 完成转换
+    ret[key] = toRef(obj, key);
+  }
+  return ret;
+}

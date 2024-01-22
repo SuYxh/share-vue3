@@ -7,7 +7,8 @@ import {
   shallowReadonly,
   ref,
   isRef,
-  toRef
+  toRef,
+  toRefs
 } from "../main";
 
 describe("reactivity system", () => {
@@ -587,5 +588,15 @@ describe("reactivity system", () => {
     const foo = toRef(obj, 'foo')
     const flag = isRef(foo)
     expect(flag).toBe(true)
+  })
+
+  it('toRefs', () => {
+    const obj = reactive({ foo: 1, bar: 2 });
+    const refObj = toRefs(obj)
+    const flag1 = isRef(refObj.foo)
+    const flag2 = isRef(refObj.bar)
+
+    expect(flag1).toBe(true)
+    expect(flag2).toBe(true)
   })
 });
