@@ -5,6 +5,7 @@ import {
   shallowReactive,
   readonly,
   shallowReadonly,
+  ref
 } from "../main";
 
 describe("reactivity system", () => {
@@ -474,18 +475,35 @@ describe("reactivity system", () => {
     const arr = reactive([]);
 
     try {
-
       effect(function effectFn1() {
-        arr.push(1)
+        arr.push(1);
       });
 
       effect(function effectFn2() {
-        arr.push(1)
+        arr.push(1);
       });
     } catch (error) {
       mockFn();
     }
 
     expect(mockFn).toHaveBeenCalledTimes(0);
+  });
+
+  it("ref 基础能力", () => {
+    const mockFn = vi.fn();
+ 
+    // 创建原始值的响应式数据
+    const refVal = ref(1);
+
+    effect(() => {
+      mockFn();
+      // 在副作用函数内通过 value 属性读取原始值
+      console.log(refVal.value);
+    });
+    expect(mockFn).toHaveBeenCalledTimes(1);
+
+    // 修改值能够触发副作用函数重新执行
+    refVal.value = 2;
+    expect(mockFn).toHaveBeenCalledTimes(2);
   });
 });
