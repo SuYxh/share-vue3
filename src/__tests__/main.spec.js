@@ -377,4 +377,19 @@ describe("reactivity system", () => {
     arr[1] = 2
     expect(mockFn).toHaveBeenCalledTimes(2);
   });
+
+  it("设置数组 length 影响数组元素", () => {
+    const arr = reactive([1]);
+    const mockFn = vi.fn();
+
+    effect(function effectFn() {
+      mockFn();
+      console.log(arr[0]);
+    });
+
+    expect(mockFn).toHaveBeenCalledTimes(1);
+
+    arr.length = 0
+    expect(mockFn).toHaveBeenCalledTimes(2);
+  });
 });

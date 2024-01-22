@@ -212,8 +212,110 @@ function trigger(target, key, type) {
 
 
 
+### 修改 length 影响数组元素
+
+当我们修改数组的 `length` 属性也会隐式地影响数组元素，例如：
+
+```js
+it("设置数组 length 影响数组元素", () => {
+  const arr = reactive([1]);
+  const mockFn = vi.fn();
+
+  effect(function effectFn() {
+    mockFn();
+    console.log(arr[0]);
+  });
+
+  expect(mockFn).toHaveBeenCalledTimes(1);
+
+  arr.length = 0
+  expect(mockFn).toHaveBeenCalledTimes(2);
+});
+```
+
+失败了。
+
+![image-20240122195913010](https://qn.huat.xyz/mac/202401222004570.png)
+
+#### 问题分析
+
+`arr.length = 0`这会隐式地影响数组元素，即所有元素都被删除，所以应该触发副作用函数重新执行，然而并没有执行。也并非所有对 `length`属性的修改都会影响数组中的已有元素，比如我们将 `length`属性设置为 100，这并不会影响第 0 个元素，所以就不需要触发副作用函数重新执行。
+
+重新执行副作用函数的条件：当修改`length`属性值时，只有大于或等于新的` length`属性值的元素才需要触发响应。
+
+#### 代码实现
+
+1、需要修改 `set` 拦截函数
+
+```js
+function createReactive(obj, isShallow = false, isReadonly = false) {
+  return new Proxy(obj, {
+    // 拦截设置操作
+    set(target, key, newVal, receiver) {
+      if (isReadonly) {
+        console.warn(`属性 ${key} 是只读的`);
+        return true;
+      }
+      const oldVal = target[key];
+
+      const type = Array.isArray(target)
+        ? Number(key) < target.length ? 'SET' : 'ADD'
+        : Object.prototype.hasOwnProperty.call(target, key) ? 'SET' : 'ADD';
+
+      const res = Reflect.set(target, key, newVal, receiver);
+      if (target === receiver.raw) {
+        if (oldVal !== newVal && (oldVal === oldVal || newVal === newVal)) {
+          // 增加第四个参数，即触发响应的新值
+          trigger(target, key, type, newVal);
+        }
+      }
+
+      return res;
+    },
+  });
+}
+```
 
 
 
+2、在调用` trigger` 函数触发响应时，把新的属性值传递过去
 
+> ⚠️ 如何判断大于或等于新的` length`属性值的元素？
 
+```js
+// 为 trigger 函数增加第四个参数，newVal，即新值
+function trigger(target, key, type, newVal) {
+  const depsMap = bucket.get(target);
+  if (!depsMap) return;
+  // 省略其他代码
+
+  // 如果操作目标是数组，并且修改了数组的 length 属性
+  if (Array.isArray(target) && key === 'length') {
+    // 对于索引大于或等于新的 length 值的元素，
+    // 需要把所有相关联的副作用函数取出并添加到 effectsToRun 中待执行
+    depsMap.forEach((effects, key) => {
+      if (key >= newVal) {
+        effects.forEach(effectFn => {
+          if (effectFn !== activeEffect) {
+            effectsToRun.add(effectFn);
+          }
+        });
+      }
+    });
+  }
+
+  effectsToRun.forEach(effectFn => {
+    if (effectFn.options.scheduler) {
+      effectFn.options.scheduler(effectFn);
+    } else {
+      effectFn();
+    }
+  });
+}
+```
+
+#### 运行单测
+
+![image-20240122201442701](https://qn.huat.xyz/mac/202401222014764.png)
+
+这样就好啦

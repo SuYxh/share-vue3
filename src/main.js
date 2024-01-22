@@ -87,7 +87,7 @@ export function track(target, key) {
   activeEffect.deps.push(deps);
 }
 
-export function trigger(target, key, type) {
+export function trigger(target, key, type, newVal) {
   // 获取与目标对象相关联的依赖映射
   const depsMap = bucket.get(target);
   // 如果没有依赖映射，则直接返回
@@ -132,6 +132,21 @@ export function trigger(target, key, type) {
           effectsToRun.add(effectFn);
         }
       });
+  }
+
+  // 如果操作目标是数组，并且修改了数组的 length 属性
+  if (Array.isArray(target) && key === "length") {
+    // 对于索引大于或等于新的 length 值的元素，
+    // 需要把所有相关联的副作用函数取出并添加到 effectsToRun 中待执行
+    depsMap.forEach((effects, key) => {
+      if (key >= newVal) {
+        effects.forEach((effectFn) => {
+          if (effectFn !== activeEffect) {
+            effectsToRun.add(effectFn);
+          }
+        });
+      }
+    });
   }
 
   // 遍历并执行所有相关的副作用函数
@@ -199,7 +214,7 @@ export function createReactive(target, isShallow = false, isReadonly = false) {
       if (target === receiver[symbolRaw]) {
         // 较新值与旧值，只有当它们不全等，并且不都是 NaN 的时候才触发响应
         if (oldVal !== newVal && (oldVal === oldVal || newVal === newVal)) {
-          trigger(target, key, type);
+          trigger(target, key, type, newVal);
         }
       }
 
