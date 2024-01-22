@@ -482,8 +482,8 @@ it("数组-2 includes", () => {
 
 ```js
 Array.prototype.includes = function (element) {
-  for (let i = 0; i < arr.length; i++) {
-    if (arr[i] === element) {
+  for (let i = 0; i < this.length; i++) {
+    if (this[i] === element) {
       return true;
     }
   }
@@ -497,7 +497,7 @@ Array.prototype.includes = function (element) {
 
 -  `arr.includes(arr[0])` 语句中，`arr[0]` 取值时候发现是一个对象，会调用 `reactive` 方法，返回一个代理对象，这里叫做  `p1`
 
--  `arr.includes(arr[0])` 还是这语句中，使用 `includes`时，在上述模拟的代码中，可以看到 `arr[i] === element`  也会去取值进行判断，取值的时候发现也是一个对象，会调用 `reactive` 方法，返回一个代理对象，这里叫做 `p2`
+-  `arr.includes(arr[0])` 还是这语句中，使用 `includes`时，在上述模拟的代码中，可以看到 `this[i] === element`  也会去取值进行判断，取值的时候发现也是一个对象，会调用 `reactive` 方法，返回一个代理对象，这里叫做 `p2`
 
   这里大家应该都看出来了吧，一个函数以相同的入参执行 2 次，每次返回都是一个新的对象，肯定就不想等啦。
 
@@ -530,6 +530,136 @@ function reactive(obj) {
 ![image-20240122214321901](https://qn.huat.xyz/mac/202401222143980.png)
 
 这下就没有问题了。
+
+
+
+### includes(obj)
+
+#### 单元测试
+
+将上面的单测简单的改动，将 `arr.includes(arr[0])` 改成 `arr.includes(obj)`
+
+```js
+it("数组-3 includes", () => {
+  const obj = {}
+  const arr = reactive([obj]);
+  let flag;
+
+  effect(function effectFn() {
+    flag = arr.includes(obj)
+    console.log(flag);
+  });
+
+  expect(flag).toBe(true)
+})
+```
+
+再跑一下：
+
+![image-20240122214718927](https://qn.huat.xyz/mac/202401222147003.png)
+
+`reactive([obj]);` 里面明明有 `obj`，怎么又找不到了呢？
+
+#### 问题分析
+
+从代码中可以看到，这是很符合直觉的行为。明明把`obj`作为数组的第一个元素了，为什么在数组中却仍然找不到`obj`对象。
+
+真正的原因是，因为`includes`内部的`this`指向的是代理对象 `arr`，并且在获取数组元素时得到的值也是代理对象，所以拿原始对象 `obj`去查找肯定找不到，因此返回 `false`。
+
+为了更好理解，再看一下这个模拟方法：
+
+```js
+Array.prototype.includes = function (element) {
+  for (let i = 0; i < this.length; i++) {
+    if (this[i] === element) {
+      return true;
+    }
+  }
+  return false;
+};
+```
+
+逐句解释：
+
+- `includes`内部的`this`指向的是代理对象 `arr` ： 因为是 `arr`调用的 `includes(obj)` 方法，而 `arr`是`reactive` 方法返回的
+- 并且在获取数组元素时得到的值也是代理对象： `this[i]` 会进行取值，取出的值为对象类型，会再次调用 `reactive` 方法，所以得到的值为代理对象
+- 所以拿原始对象 `obj`去查找肯定找不到： 看看这句代码`this[i] === element`，`this[i]`是 `obj`的代理对象，`element`是 `obj`对象，肯定不想等
+
+
+
+#### 解决
+
+1、重写 `includes` !
+
+```js
+const originMethod = Array.prototype.includes;
+const arrayInstrumentations = {
+  includes: function(...args) {
+    // this 是代理对象，先在代理对象中查找，将结果存储到 res 中
+    let res = originMethod.apply(this, args);
+
+    if (res === false) {
+      // res 为 false 说明没找到，通过 this[symbolRaw] 拿到原始数组，再去其中查找并更新 res 值
+      res = originMethod.apply(this[symbolRaw], args);
+    }
+    // 返回最终结果
+    return res;
+  }
+};
+```
+
+> `symbolRaw` 其实就是`const symbolRaw = Symbol("raw");` 避免冲突
+
+先在代理对象中进行查找，这其实是实现了 `arr.include(obj)`的默认行为。如果找不到，通过 `this[symbolRaw]`拿到原始数组，再去其中查找，最后返回结果。
+
+
+
+2、拦截 `includes`等方法
+
+```js
+function createReactive(obj, isShallow = false, isReadonly = false) {
+  return new Proxy(obj, {
+    // 拦截读取操作
+    get(target, key, receiver) {
+      console.log('get: ', key);
+      if (key === symbolRaw) {
+        return target;
+      }
+      // 如果操作的目标对象是数组，并且 key 存在于 arrayInstrumentations 上，
+      // 那么返回定义在 arrayInstrumentations 上的值
+      if (Array.isArray(target) && arrayInstrumentations.hasOwnProperty(key)) {
+        return Reflect.get(arrayInstrumentations, key, receiver);
+      }
+
+      if (!isReadonly && typeof key !== 'symbol') {
+        track(target, key);
+      }
+
+      const res = Reflect.get(target, key, receiver);
+
+      if (isShallow) {
+        return res;
+      }
+
+      if (typeof res === 'object' && res !== null) {
+        return isReadonly ? readonly(res) : reactive(res);
+      }
+
+      return res;
+    },
+  });
+}
+```
+
+`arr.includes` 可以理解为读取代理对象 `arr`的`includes`属性，这就会触发 `get`拦截函数，在该函数内检查` target`是否是数组，如果是数组并且读取的键值存在于 `arrayInstrumentations`上，则返回定义在 `arrayInstrumentations`对象上相应的值。也就是说，当执行`arr.includes`时，实际执行的是定义在 `arrayInstrumentations`上的 `includes` 函数，这样就实现了重写。
+
+#### 运行单测
+
+![image-20240122220406105](https://qn.huat.xyz/mac/202401222204204.png)
+
+这下就没有问题了。
+
+
 
 
 

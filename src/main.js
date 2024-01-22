@@ -18,6 +18,21 @@ const TriggerType = {
 // 定义一个 Map 实例，存储原始对象到代理对象的映射
 const reactiveMap = new Map();
 
+const originMethod = Array.prototype.includes;
+const arrayInstrumentations = {
+  includes: function (...args) {
+    // this 是代理对象，先在代理对象中查找，将结果存储到 res 中
+    let res = originMethod.apply(this, args);
+
+    if (res === false) {
+      // res 为 false 说明没找到，通过 this.raw 拿到原始数组，再去其中查找并更新 res 值
+      res = originMethod.apply(this[symbolRaw], args);
+    }
+    // 返回最终结果
+    return res;
+  },
+};
+
 function cleanup(effectFn) {
   // 遍历 effectFn.deps 数组
   for (let i = 0; i < effectFn.deps.length; i++) {
@@ -171,6 +186,12 @@ export function createReactive(target, isShallow = false, isReadonly = false) {
         return target;
       }
 
+      // 如果操作的目标对象是数组，并且 key 存在于 arrayInstrumentations 上，
+      // 那么返回定义在 arrayInstrumentations 上的值
+      if (Array.isArray(target) && arrayInstrumentations.hasOwnProperty(key)) {
+        return Reflect.get(arrayInstrumentations, key, receiver);
+      }
+
       const res = Reflect.get(target, key, receiver);
 
       //  如果是浅响应，则直接返回原始值
@@ -183,7 +204,7 @@ export function createReactive(target, isShallow = false, isReadonly = false) {
       }
 
       // 将副作用函数 activeEffect 添加到存储副作用函数的桶中
-      if (!isReadonly && typeof key !== 'symbol') {
+      if (!isReadonly && typeof key !== "symbol") {
         track(target, key);
       }
 

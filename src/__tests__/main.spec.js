@@ -455,4 +455,17 @@ describe("reactivity system", () => {
 
     expect(flag).toBe(true)
   })
+
+  it("数组-3 includes", () => {
+    const obj = {}
+    const arr = reactive([obj]);
+    let flag;
+
+    effect(function effectFn() {
+      flag = arr.includes(obj)
+      console.log(flag);
+    });
+
+    expect(flag).toBe(true)
+  })
 });
