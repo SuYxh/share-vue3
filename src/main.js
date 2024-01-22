@@ -369,3 +369,13 @@ export function toRefs(obj) {
   }
   return ret;
 }
+
+export function proxyRefs(target) {
+  return new Proxy(target, {
+    get(target, key, receiver) {
+      const value = Reflect.get(target, key, receiver);
+      // 自动脱 ref 实现：如果读取的值是 ref，则返回它的 value 属性值
+      return value.__v_isRef ? value.value : value;
+    }
+  });
+}

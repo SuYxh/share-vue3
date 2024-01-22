@@ -8,7 +8,8 @@ import {
   ref,
   isRef,
   toRef,
-  toRefs
+  toRefs,
+  proxyRefs
 } from "../main";
 
 describe("reactivity system", () => {
@@ -598,5 +599,13 @@ describe("reactivity system", () => {
 
     expect(flag1).toBe(true)
     expect(flag2).toBe(true)
+  })
+
+  it('proxyRefs', () => {
+    const obj = reactive({ foo: 1, bar: 2 });
+    const newObj = proxyRefs({ ...toRefs(obj) })
+
+    expect(newObj.foo).toBe(1)
+    expect(newObj.bar).toBe(2)
   })
 });

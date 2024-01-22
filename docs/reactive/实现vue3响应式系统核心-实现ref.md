@@ -439,7 +439,50 @@ function toRefs(obj) {
 
 
 
+## 实现 proxyRefs
 
+`toRefs`函数的确解决了响应丢失问题，但同时也带来了新的问题。由于 `toRefs`会把响应式数据的第一层属性值转换为 `ref`，因此必须通过 `value`属性访问值。使用过 vue3 的小伙伴，想必都知道，我们在模板中使用 `ref `数据的时候并不需要 `.value`，这又是怎么回事呢？
+
+这也就是我们说的：自动脱 `ref`。指的是属性的访问行为，即如果读取的属性是一个 `ref`，则直接将该 `ref`对应的`value`属性值返回。
+
+### 单元测试
+
+```js
+it('proxyRefs', () => {
+  const obj = reactive({ foo: 1, bar: 2 });
+  const newObj = proxyRefs({ ...toRefs(obj) })
+
+  expect(newObj.foo).toBe(1)
+  expect(newObj.bar).toBe(2)
+})
+```
+
+
+
+### 代码实现
+
+```js
+function proxyRefs(target) {
+  return new Proxy(target, {
+    get(target, key, receiver) {
+      const value = Reflect.get(target, key, receiver);
+      // 自动脱 ref 实现：如果读取的值是 ref，则返回它的 value 属性值
+      return value.__v_isRef ? value.value : value;
+    }
+  });
+}
+```
+
+ `proxyRefs`函数，该函数接收一个对象作为参数，并返回该对象的代理对象。代理对象的作用是拦截`get`
+ 操作，当读取的属性是一个 `ref` 时，则直接返回该`ref`的 `value`属性值，这样就实现了自动脱 `ref`。
+
+
+
+### 运行单测
+
+![image-20240123002017124](https://qn.huat.xyz/mac/202401230020200.png)
+
+没有问题
 
 
 
