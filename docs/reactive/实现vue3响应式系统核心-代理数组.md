@@ -690,7 +690,102 @@ const arrayInstrumentations = {};
 
 
 
+## 隐式修改数组长度的原型方法
 
+会隐式修改数组长度的方法，主要指的是数组的栈方法，例如 `push/pop/shift/unshift` 除此之外，`splice`方法也会隐式地修改数组长度。
+
+### 单元测试
+
+```js
+it("数组 push", () => {
+  const mockFn = vi.fn();
+  const arr = reactive([]);
+
+  try {
+
+    effect(function effectFn1() {
+      arr.push(1)
+    });
+
+    effect(function effectFn2() {
+      arr.push(1)
+    });
+  } catch (error) {
+    mockFn();
+  }
+
+  expect(mockFn).toHaveBeenCalledTimes(0);
+});
+```
+
+执行一下：
+
+![image-20240122221610820](https://qn.huat.xyz/mac/202401222216921.png)
+
+从测试可以看出这段代码报错。
+
+在浏览器中运行上面这段代码，会得到栈溢出的错误（Maximum call stack size exceeded）
+
+
+
+### 问题分析
+
+第一个副作用函数执行。在该函数内，调用 `arr.push` 方法向数组中添加了一个元素。调用数组的 `push`方法会间接读取数组的` length`属性。所以，当第一个副作用函数执行完毕后，会与` length`属性建立响应联系。
+
+第二个副作用函数执行。同样，它也会与` length` 属性建立响应联系。但不要忘记，调用` arr.push` 方法不仅会间接读取数组的 `length`属性，还会间接设置` length` 属性的值。
+
+第二个函数内的 `arr.push` 方法的调用设置了数组的` length`属性值。于是，响应系统尝试把与` length `属性相关联的副作用函数全部取出并执行，其中就包括第一个副作用函数。问题就出在这里，可以发现，第二个副作用函数还未执行完毕，就要再次执行第一个副作用函数了。第一个副作用函数再次执行。同样，这会间接设置数组的` length`属性。于是，响应系统又要尝试把所有与` length `属性相关联的副作用函数取出并执行，其中就包含第二个副作用函数。
+
+如此循环往复，最终导致调用栈溢出。
+
+根本原因是 `push` 方法的调用会间接读取 `length` 属性。
+
+### 解决
+
+们“屏蔽”对 `length` 属性的读取，从而避免在它与副作用函数之间建立响应联系。
+
+1、重写数组的 `push` 方法
+
+```js
+// 一个标记变量，代表是否进行追踪。默认值为 true，即允许追踪
+let shouldTrack = true;
+
+// 重写数组的 push 方法
+['push'].forEach(method => {
+  // 取得原始 push 方法
+  const originMethod = Array.prototype[method];
+  // 重写
+  arrayInstrumentations[method] = function(...args) {
+    // 在调用原始方法之前，禁止追踪
+    shouldTrack = false;
+    // push 方法的默认行为
+    let res = originMethod.apply(this, args);
+    // 在调用原始方法之后，恢复原来的行为，即允许追踪
+    shouldTrack = true;
+    return res;
+  };
+});
+```
+
+定义变量 `shouldTrack` 代表是否允许追踪。接着，我们重写了数组的 `push` 方法，在执行默认行为之前，先将标记变量 `shouldTrack` 的值设置为 `false`，即禁止追踪。当` push `方法的默认行为执行完毕后，再将标记变`shouldTrack`的值还原为` true`，代表允许追踪。
+
+
+
+2、在 `track` 方法中设置开关
+
+```js
+function track(target, key) {
+  // 当禁止追踪时，直接返回
+  if (!activeEffect || !shouldTrack) return;
+  // 省略部分代码
+}
+```
+
+可以看到，当标记变量`shouldTrack `的值为` false`时，即禁止追踪时，`track`函数会直接返回。这样，当 `push`方法间接读取 `length`属性值时，由于此时是禁止追踪的状态，所以` length`属性与副作用函数之间不会建立响应联系。
+
+### 运行单测
+
+![image-20240122222611166](https://qn.huat.xyz/mac/202401222226273.png)
 
 
 

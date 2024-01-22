@@ -374,7 +374,7 @@ describe("reactivity system", () => {
 
     expect(mockFn).toHaveBeenCalledTimes(1);
 
-    arr[1] = 2
+    arr[1] = 2;
     expect(mockFn).toHaveBeenCalledTimes(2);
   });
 
@@ -389,7 +389,7 @@ describe("reactivity system", () => {
 
     expect(mockFn).toHaveBeenCalledTimes(1);
 
-    arr.length = 0
+    arr.length = 0;
     expect(mockFn).toHaveBeenCalledTimes(2);
   });
 
@@ -407,9 +407,9 @@ describe("reactivity system", () => {
     expect(mockFn).toHaveBeenCalledTimes(1);
 
     // arr.length = 1
-    arr[2] = 100
+    arr[2] = 100;
     expect(mockFn).toHaveBeenCalledTimes(2);
-  })
+  });
 
   it("数组遍历 for of", () => {
     const arr = reactive([1, 2]);
@@ -424,48 +424,68 @@ describe("reactivity system", () => {
 
     expect(mockFn).toHaveBeenCalledTimes(1);
 
-    arr[2] = 100
+    arr[2] = 100;
     expect(mockFn).toHaveBeenCalledTimes(2);
-  })
+  });
 
   it("数组-1 includes", () => {
     const arr = reactive([1, 2]);
     let flag;
 
     effect(function effectFn() {
-      flag = arr.includes(1)
+      flag = arr.includes(1);
       console.log(flag);
     });
 
-    expect(flag).toBe(true)
+    expect(flag).toBe(true);
 
-    arr[0] = 100
-    expect(flag).toBe(false)
-  })
+    arr[0] = 100;
+    expect(flag).toBe(false);
+  });
 
   it("数组-2 includes", () => {
-    const obj = {}
+    const obj = {};
     const arr = reactive([obj]);
     let flag;
 
     effect(function effectFn() {
-      flag = arr.includes(arr[0])
+      flag = arr.includes(arr[0]);
       console.log(flag);
     });
 
-    expect(flag).toBe(true)
-  })
+    expect(flag).toBe(true);
+  });
 
   it("数组-3 includes", () => {
-    const obj = {}
+    const obj = {};
     const arr = reactive([obj]);
     let flag;
 
     effect(function effectFn() {
-      flag = arr.includes(obj)
+      flag = arr.includes(obj);
       console.log(flag);
     });
 
-    expect(flag).toBe(true)
-  })
+    expect(flag).toBe(true);
+  });
+
+  it("数组 push", () => {
+    const mockFn = vi.fn();
+    const arr = reactive([]);
+
+    try {
+
+      effect(function effectFn1() {
+        arr.push(1)
+      });
+
+      effect(function effectFn2() {
+        arr.push(1)
+      });
+    } catch (error) {
+      mockFn();
+    }
+
+    expect(mockFn).toHaveBeenCalledTimes(0);
+  });
 });

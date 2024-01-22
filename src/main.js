@@ -35,6 +35,26 @@ const arrayInstrumentations = {};
   };
 });
 
+
+// 一个标记变量，代表是否进行追踪。默认值为 true，即允许追踪
+let shouldTrack = true;
+
+// 重写数组的 push 方法
+['push'].forEach(method => {
+  // 取得原始 push 方法
+  const originMethod = Array.prototype[method];
+  // 重写
+  arrayInstrumentations[method] = function(...args) {
+    // 在调用原始方法之前，禁止追踪
+    shouldTrack = false;
+    // push 方法的默认行为
+    let res = originMethod.apply(this, args);
+    // 在调用原始方法之后，恢复原来的行为，即允许追踪
+    shouldTrack = true;
+    return res;
+  };
+});
+
 function cleanup(effectFn) {
   // 遍历 effectFn.deps 数组
   for (let i = 0; i < effectFn.deps.length; i++) {
@@ -82,7 +102,7 @@ export function effect(fn, options = {}) {
 
 export function track(target, key) {
   // 没有 activeEffect，直接返回
-  if (!activeEffect) return;
+  if (!activeEffect || !shouldTrack) return;
   // 根据 target 从“桶”中取得 depsMap，它也是一个 Map 类型：key --> effects
   let depsMap = bucket.get(target);
 
