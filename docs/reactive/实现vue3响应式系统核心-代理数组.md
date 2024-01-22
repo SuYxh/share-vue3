@@ -412,3 +412,124 @@ function createReactive(obj, isShallow = false, isReadonly = false) {
 }
 ```
 
+
+
+
+
+## 数组的查找方法
+
+经过上面的内容，我们发现大多数情况下，我们不需要做特殊处理即可让这些方法按预期工作。那么我们在来看看一些查找的方法。
+
+看看这个 `includes` 方法：
+
+```js
+it("数组-1 includes", () => {
+    const arr = reactive([1, 2]);
+    let flag;
+
+    effect(function effectFn() {
+      flag = arr.includes(1)
+      console.log(flag);
+    });
+
+    expect(flag).toBe(true)
+
+    arr[0] = 100
+    expect(flag).toBe(false)
+  })
+```
+
+运行一下，
+
+![image-20240122212037551](https://qn.huat.xyz/mac/202401222120620.png)
+
+没问题。
+
+
+
+### includes(arr[0])
+
+#### 单元测试
+
+真的没问题吗？再看看这个：
+
+```js
+it("数组-2 includes", () => {
+  const obj = {}
+  const arr = reactive([obj]);
+  let flag;
+
+  effect(function effectFn() {
+    flag = arr.includes(arr[0])
+    console.log(flag);
+  });
+
+  expect(flag).toBe(true)
+})
+```
+
+![image-20240122212240809](https://qn.huat.xyz/mac/202401222122883.png)
+
+不科学啊，明明就有，为什么会失败呢？
+
+#### 问题分析
+
+在 `arr.includes(arr[0])` 语句中，`arr`是代理对象，所以` includes`函数执行时的` this`指向的是代理对象，即 `arr`。我们使用的是 `reactive` 方法创建的响应式对象，是一个深响应，之前有讲到过。`arr[0]` 是一个对象类型的数据，会再次使用 `reactive` 方法创建对象，得到的值就是新的代理对象而非原始对象。而在 `includes` 方法内部也会通过 `arr` 访问数组元素，从而也得到一个代理对象，问题是这两个代理对象是不同的。因为每次调用`reactive`函数时都会创建一个新的代理对象。
+
+
+
+为了能够更好的理解，我们来模拟实现一个 `includes` 方法：
+
+```js
+Array.prototype.includes = function (element) {
+  for (let i = 0; i < arr.length; i++) {
+    if (arr[i] === element) {
+      return true;
+    }
+  }
+  return false;
+};
+```
+
+
+
+再来解释一下这句话  `这两个代理对象是不同的` ：
+
+-  `arr.includes(arr[0])` 语句中，`arr[0]` 取值时候发现是一个对象，会调用 `reactive` 方法，返回一个代理对象，这里叫做  `p1`
+
+-  `arr.includes(arr[0])` 还是这语句中，使用 `includes`时，在上述模拟的代码中，可以看到 `arr[i] === element`  也会去取值进行判断，取值的时候发现也是一个对象，会调用 `reactive` 方法，返回一个代理对象，这里叫做 `p2`
+
+  这里大家应该都看出来了吧，一个函数以相同的入参执行 2 次，每次返回都是一个新的对象，肯定就不想等啦。
+
+
+
+#### 解决
+
+```js
+// 定义一个 Map 实例，存储原始对象到代理对象的映射
+const reactiveMap = new Map();
+
+function reactive(obj) {
+  // 优先通过原始对象 obj 寻找之前创建的代理对象，如果找到了，直接返回已有的代理对象
+  const existionProxy = reactiveMap.get(obj);
+  if (existionProxy) return existionProxy;
+
+  // 否则，创建新的代理对象
+  const proxy = createReactive(obj);
+  // 存储到 Map 中，从而避免重复创建
+  reactiveMap.set(obj, proxy);
+
+  return proxy;
+}
+```
+
+就是找个地记录一下，有没有被代理过，如果有代理过，就返回代理过的，如果没有就创建新的，然后记录一下。相当于建立一个缓存，缓存中有，就说明被代理过，直接返回就好。
+
+#### 运行单测
+
+![image-20240122214321901](https://qn.huat.xyz/mac/202401222143980.png)
+
+这下就没有问题了。
+
+
+

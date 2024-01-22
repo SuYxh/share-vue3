@@ -15,6 +15,9 @@ const TriggerType = {
   DEL: "DEL",
 };
 
+// 定义一个 Map 实例，存储原始对象到代理对象的映射
+const reactiveMap = new Map();
+
 function cleanup(effectFn) {
   // 遍历 effectFn.deps 数组
   for (let i = 0; i < effectFn.deps.length; i++) {
@@ -256,7 +259,16 @@ export function createReactive(target, isShallow = false, isReadonly = false) {
 
 // 对原始数据的代理
 export function reactive(target) {
-  return createReactive(target);
+  // 优先通过原始对象 target 寻找之前创建的代理对象，如果找到了，直接返回已有的代理对象
+  const existionProxy = reactiveMap.get(target);
+  if (existionProxy) return existionProxy;
+
+  // 否则，创建新的代理对象
+  const proxy = createReactive(target);
+  // 存储到 Map 中，从而避免重复创建
+  reactiveMap.set(target, proxy);
+
+  return proxy;
 }
 
 export function shallowReactive(target) {

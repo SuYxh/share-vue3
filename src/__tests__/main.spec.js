@@ -427,4 +427,32 @@ describe("reactivity system", () => {
     arr[2] = 100
     expect(mockFn).toHaveBeenCalledTimes(2);
   })
+
+  it("数组-1 includes", () => {
+    const arr = reactive([1, 2]);
+    let flag;
+
+    effect(function effectFn() {
+      flag = arr.includes(1)
+      console.log(flag);
+    });
+
+    expect(flag).toBe(true)
+
+    arr[0] = 100
+    expect(flag).toBe(false)
+  })
+
+  it("数组-2 includes", () => {
+    const obj = {}
+    const arr = reactive([obj]);
+    let flag;
+
+    effect(function effectFn() {
+      flag = arr.includes(arr[0])
+      console.log(flag);
+    });
+
+    expect(flag).toBe(true)
+  })
 });
