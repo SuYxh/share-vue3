@@ -319,3 +319,96 @@ function trigger(target, key, type, newVal) {
 ![image-20240122201442701](https://qn.huat.xyz/mac/202401222014764.png)
 
 这样就好啦
+
+
+
+## 遍历数组
+
+### for in
+
+数组也是对象，那么也可以使用 `for...in` 遍历，不过应该尽量避免使用` for...in `遍历数组。
+
+对于普通对象，只有当添加或删除属性值时才会影响 `for...in` 循环的结果，所以当添加或删除属性操作发生时，我们需要取出与` ITERATE_KEY` 相关联的副作用函数重新执行。
+
+对于数组来说情况有所不同，
+
+- 添加新元素：`arr[100] = 'bar'`
+- 修改数组长度：`arr.length = 0`
+
+其实，无论是为数组添加新元素，还是直接修改数组的长度，本质上都是因为修改了数组的 `length`属性。一旦数组的` length` 属性被修改，那么` for...in `循环对数组的遍历结果就会改变，所以在这种情况下我们应该触发响应。
+
+```js
+function createReactive(obj, isShallow = false, isReadonly = false) {
+  return new Proxy(obj, {
+    // 省略其他拦截函数
+    ownKeys(target) {
+      // 如果操作目标 target 是数组，则使用 length 属性作为 key 并建立响应联系
+      track(target, Array.isArray(target) ? 'length' : ITERATE_KEY);
+      return Reflect.ownKeys(target);
+    }
+  });
+}
+```
+
+
+
+### for of
+
+```js
+it("数组遍历 for of", () => {
+  const arr = reactive([1, 2]);
+  const mockFn = vi.fn();
+
+  effect(function effectFn() {
+    mockFn();
+    for (const key of arr) {
+      console.log(key);
+    }
+  });
+
+  expect(mockFn).toHaveBeenCalledTimes(1);
+
+  arr[2] = 100
+  expect(mockFn).toHaveBeenCalledTimes(2);
+})
+```
+
+![image-20240122203402582](https://qn.huat.xyz/mac/202401222034644.png)
+
+可以看到，不需要增加任何代码就能够使其正确地工作。这是因为只要数组的长度和元素值发生改变，副作用函数自然会重新执行。
+
+
+
+在使用` for...of` 循环时，会读取数组的 `Symbol.iterator`属性。该属性是一个 `symbol` 值，为了避免发生意外的错误，以及性能上的考虑，我们不应该在副作用函数与 `Symbol.iterator` 这类` symbol`值之间建立响应联系，因此需要修改 get 拦截函数，如以下代码所示：
+
+```js
+function createReactive(obj, isShallow = false, isReadonly = false) {
+  return new Proxy(obj, {
+    // 拦截读取操作
+    get(target, key, receiver) {
+      console.log('get: ', key);
+      if (key === 'raw') {
+        return target;
+      }
+
+      // 添加判断，如果 key 的类型是 symbol，则不进行追踪
+      if (!isReadonly && typeof key !== 'symbol') {
+        track(target, key);
+      }
+
+      const res = Reflect.get(target, key, receiver);
+
+      if (isShallow) {
+        return res;
+      }
+
+      if (typeof res === 'object' && res !== null) {
+        return isReadonly ? readonly(res) : reactive(res);
+      }
+
+      return res;
+    },
+  });
+}
+```
+

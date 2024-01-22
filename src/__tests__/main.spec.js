@@ -392,4 +392,39 @@ describe("reactivity system", () => {
     arr.length = 0
     expect(mockFn).toHaveBeenCalledTimes(2);
   });
+
+  it("数组遍历 for in", () => {
+    const arr = reactive([1, 2]);
+    const mockFn = vi.fn();
+
+    effect(function effectFn() {
+      mockFn();
+      for (const key in arr) {
+        console.log(key);
+      }
+    });
+
+    expect(mockFn).toHaveBeenCalledTimes(1);
+
+    // arr.length = 1
+    arr[2] = 100
+    expect(mockFn).toHaveBeenCalledTimes(2);
+  })
+
+  it("数组遍历 for of", () => {
+    const arr = reactive([1, 2]);
+    const mockFn = vi.fn();
+
+    effect(function effectFn() {
+      mockFn();
+      for (const key of arr) {
+        console.log(key);
+      }
+    });
+
+    expect(mockFn).toHaveBeenCalledTimes(1);
+
+    arr[2] = 100
+    expect(mockFn).toHaveBeenCalledTimes(2);
+  })
 });

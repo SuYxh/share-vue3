@@ -180,7 +180,7 @@ export function createReactive(target, isShallow = false, isReadonly = false) {
       }
 
       // 将副作用函数 activeEffect 添加到存储副作用函数的桶中
-      if (!isReadonly) {
+      if (!isReadonly && typeof key !== 'symbol') {
         track(target, key);
       }
 
@@ -227,6 +227,7 @@ export function createReactive(target, isShallow = false, isReadonly = false) {
     },
     // 拦截 for in 循环
     ownKeys(target) {
+      // track(target, Array.isArray(target) ? 'length' : ITERATE_KEY);
       track(target, ITERATE_KEY);
       return Reflect.ownKeys(target);
     },
