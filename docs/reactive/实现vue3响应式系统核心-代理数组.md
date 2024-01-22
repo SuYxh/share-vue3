@@ -661,5 +661,36 @@ function createReactive(obj, isShallow = false, isReadonly = false) {
 
 
 
+### 优化完善
+
+除了 `includes` 方法之外，还需要做类似处理的数组方法有` indexOf`和` lastIndexOf`，因为它们都属于根据给定的值返回查找结果的方法。所以我们还需要增加对这2 个方法的支持：
+
+```js
+const arrayInstrumentations = {};
+
+['includes', 'indexOf', 'lastIndexOf'].forEach(method => {
+  const originMethod = Array.prototype[method];
+  arrayInstrumentations[method] = function(...args) {
+    // this 是代理对象，先在代理对象中查找，将结果存储到 res 中
+    let res = originMethod.apply(this, args);
+
+    if (res === false || res === -1) {
+      // res 为 false 或 -1 说明没找到，通过 this.raw 拿到原始数组，再去其中查找，并更新 res 值
+      res = originMethod.apply(this.raw, args);
+    }
+    // 返回最终结果
+    return res;
+  };
+});
+```
+
+### 运行测试
+
+![image-20240122221112904](https://qn.huat.xyz/mac/202401222211005.png)
+
+
+
+
+
 
 

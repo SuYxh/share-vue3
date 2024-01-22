@@ -18,20 +18,22 @@ const TriggerType = {
 // 定义一个 Map 实例，存储原始对象到代理对象的映射
 const reactiveMap = new Map();
 
-const originMethod = Array.prototype.includes;
-const arrayInstrumentations = {
-  includes: function (...args) {
+const arrayInstrumentations = {};
+
+['includes', 'indexOf', 'lastIndexOf'].forEach(method => {
+  const originMethod = Array.prototype[method];
+  arrayInstrumentations[method] = function(...args) {
     // this 是代理对象，先在代理对象中查找，将结果存储到 res 中
     let res = originMethod.apply(this, args);
 
-    if (res === false) {
-      // res 为 false 说明没找到，通过 this.raw 拿到原始数组，再去其中查找并更新 res 值
+    if (res === false || res === -1) {
+      // res 为 false 或 -1 说明没找到，通过 this[symbolRaw] 拿到原始数组，再去其中查找，并更新 res 值
       res = originMethod.apply(this[symbolRaw], args);
     }
     // 返回最终结果
     return res;
-  },
-};
+  };
+});
 
 function cleanup(effectFn) {
   // 遍历 effectFn.deps 数组
