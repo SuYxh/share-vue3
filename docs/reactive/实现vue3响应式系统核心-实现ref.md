@@ -486,3 +486,39 @@ function proxyRefs(target) {
 
 
 
+### 优化
+
+既然读取属性的值有自动脱` ref`的能力，对应地，设置属性的值也应该有自动为 `ref`设置值的能力，只需要添加对应的 `set` 拦截函数即可。
+
+```js
+function proxyRefs(target) {
+  return new Proxy(target, {
+    get(target, key, receiver) {
+      const value = Reflect.get(target, key, receiver);
+      return value.__v_isRef ? value.value : value;
+    },
+    set(target, key, newValue, receiver) {
+      // 通过 target 读取真实值
+      const value = target[key];
+      // 如果值是 Ref，则设置其对应的 value 属性值
+      if (value.__v_isRef) {
+        value.value = newValue;
+        return true;
+      }
+      return Reflect.set(target, key, newValue, receiver);
+    }
+  });
+}
+```
+
+这么设计旨在减轻用户的心智负担，因为在大部分情况下，用户并不知道一个值到底是不是 `ref` 。有了自动脱 `ref`的能力后，用户在模板中使用响应式数据时，将不再需要关心哪些是 `ref`，哪些不是` ref`。
+
+
+
+## 运行测试
+
+```
+pnpm test
+```
+
+![image-20240123003546698](https://qn.huat.xyz/mac/202401230035781.png)
