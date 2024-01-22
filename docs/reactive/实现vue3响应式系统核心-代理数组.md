@@ -789,3 +789,34 @@ function track(target, key) {
 
 
 
+### 优化完善
+
+```js
+let shouldTrack = true;
+
+// 重写数组的 push、pop、shift、unshift 以及 splice 方法
+['push', 'pop', 'shift', 'unshift', 'splice'].forEach(method => {
+  const originMethod = Array.prototype[method];
+  arrayInstrumentations[method] = function(...args) {
+    shouldTrack = false;
+    let res = originMethod.apply(this, args);
+    shouldTrack = true;
+    return res;
+  };
+});
+```
+
+
+
+## 运行测试命令
+
+```
+pnpm test
+```
+
+![image-20240122222936427](https://qn.huat.xyz/mac/202401222229536.png)
+
+
+
+
+
