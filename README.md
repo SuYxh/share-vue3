@@ -75,7 +75,7 @@ pnpm docs:dev
 - [实现vue3响应式系统核心-合理触发响应](./docs/reactive/实现vue3响应式系统核心-合理触发响应.md)
 - [实现vue3响应式系统核心-shallowReactive](./docs/reactive/实现vue3响应式系统核心-shallowReactive.md)
 - [实现vue3响应式系统核心-readonly&shallowReadonly](./docs/reactive/实现vue3响应式系统核心-readonly&shallowReadonly.md)
-
+- [实现vue3响应式系统核心-代理数组](./docs/reactive/实现vue3响应式系统核心-代理数组.md)
 
 
 #### 流程图

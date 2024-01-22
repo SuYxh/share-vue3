@@ -26,6 +26,7 @@
 - [实现vue3响应式系统核心-合理触发响应](./实现vue3响应式系统核心-合理触发响应.md)
 - [实现vue3响应式系统核心-shallowReactive](./实现vue3响应式系统核心-shallowReactive.md)
 - [实现vue3响应式系统核心-readonly&shallowReadonly](./实现vue3响应式系统核心-readonly&shallowReadonly.md)
+- [实现vue3响应式系统核心-代理数组](./实现vue3响应式系统核心-代理数组.md)
 
 
 #### 流程图

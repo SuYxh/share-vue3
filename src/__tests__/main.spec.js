@@ -1,5 +1,11 @@
 import { describe, it, expect, vi } from "vitest";
-import { effect, reactive, shallowReactive, readonly, shallowReadonly } from "../main";
+import {
+  effect,
+  reactive,
+  shallowReactive,
+  readonly,
+  shallowReadonly,
+} from "../main";
 
 describe("reactivity system", () => {
   it("should run the effect function when reactive properties change", async () => {
@@ -271,7 +277,7 @@ describe("reactivity system", () => {
     Object.setPrototypeOf(child, parent);
 
     effect(() => {
-      mockFn()
+      mockFn();
       console.log(child.bar); // 1
     });
     expect(mockFn).toHaveBeenCalledTimes(1);
@@ -279,69 +285,96 @@ describe("reactivity system", () => {
     // 修改 child.bar 的值
     child.bar = 2; // 会导致副作用函数重新执行两次
     expect(mockFn).toHaveBeenCalledTimes(2);
-
   });
 
-  it('深响应 reactive', () => {
+  it("深响应 reactive", () => {
     const mockFn = vi.fn();
 
-    const obj = reactive({ foo: { bar: 1 } })
+    const obj = reactive({ foo: { bar: 1 } });
 
     effect(function effectFn() {
-      mockFn()
+      mockFn();
       console.log(obj.foo.bar);
-    })
+    });
     expect(mockFn).toHaveBeenCalledTimes(1);
 
-
-    obj.foo.bar = 2
+    obj.foo.bar = 2;
     expect(mockFn).toHaveBeenCalledTimes(2);
-  })
+  });
 
-  it('浅响应 shallowReactive', () => {
+  it("浅响应 shallowReactive", () => {
     const mockFn = vi.fn();
 
-    const obj = shallowReactive({ foo: { bar: 1 } })
+    const obj = shallowReactive({ foo: { bar: 1 } });
 
     effect(function effectFn() {
-      mockFn()
+      mockFn();
       console.log(obj.foo.bar);
-    })
+    });
     expect(mockFn).toHaveBeenCalledTimes(1);
 
-
-    obj.foo.bar = 2
+    obj.foo.bar = 2;
     expect(mockFn).toHaveBeenCalledTimes(1);
-  })
+  });
 
-  it('只读 readonly', () => {
+  it("只读 readonly", () => {
     const consoleSpy = vi.spyOn(console, "warn"); // 捕获 console.warn
 
-    const obj = readonly({ foo: { bar: 1 } })
+    const obj = readonly({ foo: { bar: 1 } });
 
     effect(function effectFn() {
-      consoleSpy()
+      consoleSpy();
       console.log(obj.foo.bar);
-    })
+    });
     expect(consoleSpy).toHaveBeenCalledTimes(1);
 
-    obj.foo.bar = 2
+    obj.foo.bar = 2;
     expect(consoleSpy).toHaveBeenCalledTimes(2);
-  })
+  });
 
-  it('浅只读 shallowReadonly', () => {
+  it("浅只读 shallowReadonly", () => {
     const consoleSpy = vi.spyOn(console, "warn"); // 捕获 console.warn
 
-    const obj = shallowReadonly({ foo: { bar: 1 } })
+    const obj = shallowReadonly({ foo: { bar: 1 } });
 
     effect(function effectFn() {
-      consoleSpy()
+      consoleSpy();
       console.log(obj.foo.bar);
-    })
+    });
 
     expect(consoleSpy).toHaveBeenCalledTimes(1);
 
-    obj.foo.bar = 2
+    obj.foo.bar = 2;
     expect(consoleSpy).toHaveBeenCalledTimes(1);
-  })
+  });
+
+  it("测试数组代理", () => {
+    const arr = reactive([1, 2, 3, 4]);
+    const mockFn = vi.fn();
+
+    effect(function effectFn() {
+      mockFn();
+      console.log(arr[0]);
+    });
+
+    expect(mockFn).toHaveBeenCalledTimes(1);
+
+    arr[0] = "dahuang";
+    expect(mockFn).toHaveBeenCalledTimes(2);
+  });
+
+  it("设置数组 length 大于当前数组长度", () => {
+    const arr = reactive([1]);
+    const mockFn = vi.fn();
+
+    effect(function effectFn() {
+      mockFn();
+      console.log(arr.length);
+    });
+
+    expect(mockFn).toHaveBeenCalledTimes(1);
+
+    arr[1] = 2
+    expect(mockFn).toHaveBeenCalledTimes(2);
+  });
 });

@@ -25,6 +25,7 @@ export default defineConfig({
           { text: '合理触发响应', link: '../reactive/实现vue3响应式系统核心-合理触发响应.md' },
           { text: 'shallowReactive', link: '../reactive/实现vue3响应式系统核心-shallowReactive.md' },
           { text: 'readonly&shallowReadonly', link: '../reactive/实现vue3响应式系统核心-readonly&shallowReadonly.md' },
+          { text: '代理数组', link: '../reactive/实现vue3响应式系统核心-代理数组.md' },
         ]
       }
     ],
