@@ -26,7 +26,7 @@ export default defineConfig({
           { text: 'shallowReactive', link: '../reactive/实现vue3响应式系统核心-shallowReactive.md' },
           { text: 'readonly&shallowReadonly', link: '../reactive/实现vue3响应式系统核心-readonly&shallowReadonly.md' },
           { text: '代理数组', link: '../reactive/实现vue3响应式系统核心-代理数组.md' },
-          { text: '实现ref', link: '../reactive/实现vue3响应式系统核心-实现ref.md' },
+          { text: 'ref相关', link: '../reactive/实现vue3响应式系统核心-ref相关.md' },
         ]
       }
     ],
