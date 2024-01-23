@@ -51,7 +51,8 @@ pnpm docs:dev
 
 #### 已实现
 
-- [x] 响应式数据以及副作用函数
+- [x] reactive
+- [x] effect
 - [x] 响应式系统MVP模型
 - [x] 依赖收集
 - [x] 派发更新
@@ -60,6 +61,14 @@ pnpm docs:dev
 - [x] scheduler
 - [x] computed
 - [x] watch
+- [x] shallowReactive
+- [x] readonly
+- [x] shallowReadonly
+- [x] ref
+- [x] isRef
+- [x] toRef
+- [x] toRefs
+- [x] proxyRefs
 
 
 
